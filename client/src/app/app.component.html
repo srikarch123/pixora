@@ -1,0 +1,187 @@
+<main class="shell">
+  <section class="panel intake-panel">
+    <div class="panel-header">
+      <p class="eyebrow">Pixora pipeline</p>
+      <h1>Generate owned websites for small businesses</h1>
+      <p>
+        Intake data flows into retrieval, Gemini content generation, template rendering, and a deployment-ready static site package.
+      </p>
+    </div>
+
+    <form [formGroup]="form" (ngSubmit)="generateSite()" class="form-grid">
+      <label>
+        Business name
+        <input formControlName="businessName" type="text">
+      </label>
+
+      <label>
+        Type
+        <select formControlName="businessType">
+          <option value="restaurant">Restaurant</option>
+          <option value="retail">Retail</option>
+          <option value="services">Services</option>
+          <option value="beauty">Beauty</option>
+          <option value="portfolio">Portfolio</option>
+        </select>
+      </label>
+
+      <label>
+        City
+        <input formControlName="city" type="text">
+      </label>
+
+      <label>
+        Country
+        <input formControlName="country" type="text">
+      </label>
+
+      <label>
+        Language
+        <select formControlName="language">
+          <option value="es">Spanish</option>
+          <option value="en">English</option>
+          <option value="pt">Portuguese</option>
+        </select>
+      </label>
+
+      <label>
+        Brand tone
+        <select formControlName="brandTone">
+          <option value="warm">Warm</option>
+          <option value="modern">Modern</option>
+          <option value="premium">Premium</option>
+          <option value="playful">Playful</option>
+          <option value="traditional">Traditional</option>
+        </select>
+      </label>
+
+      <label class="wide">
+        Description
+        <textarea formControlName="description" rows="4"></textarea>
+      </label>
+
+      <label class="wide">
+        Target audience
+        <input formControlName="audience" type="text">
+      </label>
+
+      <label class="wide">
+        Brand colors
+        <input formControlName="colors" type="text" placeholder="#315c48, #e6b85c">
+      </label>
+
+      <label class="wide">
+        Hero image URL
+        <input formControlName="heroImageUrl" type="url" placeholder="https://images.example.com/storefront.jpg">
+      </label>
+
+      <label class="wide">
+        Gallery image URLs
+        <textarea formControlName="galleryImageUrlsText" rows="3" placeholder="One image URL per line"></textarea>
+      </label>
+
+      <fieldset class="wide section-picker">
+        <legend>Website sections</legend>
+        <label *ngFor="let section of sectionOptions">
+          <input
+            type="checkbox"
+            [checked]="sectionSelected(section.value)"
+            (change)="toggleSection(section.value, $any($event.target).checked)"
+          >
+          <span>{{ section.label }}</span>
+        </label>
+      </fieldset>
+
+      <label class="wide">
+        Offerings
+        <textarea formControlName="offeringsText" rows="4"></textarea>
+      </label>
+
+      <label>
+        Email
+        <input formControlName="contactEmail" type="email">
+      </label>
+
+      <label>
+        Phone
+        <input formControlName="phone" type="text">
+      </label>
+
+      <label>
+        WhatsApp
+        <input formControlName="whatsapp" type="text">
+      </label>
+
+      <label>
+        Address
+        <input formControlName="address" type="text">
+      </label>
+
+      <label class="wide">
+        Social links
+        <input formControlName="socialLinks" type="text">
+      </label>
+
+      <button class="primary-action wide" type="submit" [disabled]="loading()">
+        {{ loading() ? "Generating..." : "Generate website" }}
+      </button>
+
+      <p class="error wide" *ngIf="error()">{{ error() }}</p>
+    </form>
+  </section>
+
+  <section class="workspace">
+    <div class="preview-header">
+      <div>
+        <p class="eyebrow">Generated output</p>
+        <h2>{{ generatedSite() ? "Website preview" : "Waiting for intake" }}</h2>
+      </div>
+      <span *ngIf="generatedSite()">Template: {{ generatedSite()?.templateId }}</span>
+    </div>
+
+    <div class="preview-frame" *ngIf="previewSource(); else emptyState">
+      <iframe title="Generated website preview" [src]="previewSource()"></iframe>
+    </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <h2>Fill the form and generate a first site.</h2>
+        <p>The backend will retrieve relevant guidance, create copy, render files, and return deployment steps.</p>
+      </div>
+    </ng-template>
+
+    <div class="output-grid" *ngIf="generatedSite() as site">
+      <section class="output-panel">
+        <div class="tabs">
+          <button
+            *ngFor="let file of site.files; let i = index"
+            type="button"
+            [class.active]="i === selectedFileIndex()"
+            (click)="selectedFileIndex.set(i)"
+          >
+            {{ file.path }}
+          </button>
+        </div>
+        <pre><code>{{ activeFile()?.content }}</code></pre>
+      </section>
+
+      <section class="output-panel">
+        <h3>Retrieved context</h3>
+        <article *ngFor="let item of site.retrievedContext">
+          <strong>{{ item.title }}</strong>
+          <span>Score {{ item.score }}</span>
+          <p>{{ item.content }}</p>
+        </article>
+      </section>
+
+      <section class="output-panel deployment">
+        <h3>Deployment plan</h3>
+        <p>Repository: <strong>{{ site.deploymentPlan.repositoryName }}</strong></p>
+        <p>Host: <strong>{{ site.deploymentPlan.suggestedHost }}</strong></p>
+        <ol>
+          <li *ngFor="let step of site.deploymentPlan.steps">{{ step }}</li>
+        </ol>
+      </section>
+    </div>
+  </section>
+</main>
