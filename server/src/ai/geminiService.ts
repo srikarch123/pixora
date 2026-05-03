@@ -1,5 +1,7 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import type { BusinessIntake, GeneratedContent, RetrievedContext } from "../types.js";
+
+let openaiRetryAfter = 0;
 
 const fallbackContent = (intake: BusinessIntake): GeneratedContent => ({
   headline: `${intake.businessName} brings ${intake.brandTone} local service to ${intake.city}`,
@@ -25,54 +27,33 @@ const fallbackContent = (intake: BusinessIntake): GeneratedContent => ({
   seoDescription: `${intake.businessName} offers ${intake.offerings.slice(0, 3).join(", ")} in ${intake.city}, ${intake.country}.`
 });
 
-const schema = {
-  type: Type.OBJECT,
-  properties: {
-    headline: { type: Type.STRING },
-    subheadline: { type: Type.STRING },
-    about: { type: Type.STRING },
-    offerings: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          name: { type: Type.STRING },
-          description: { type: Type.STRING },
-          priceHint: { type: Type.STRING }
-        },
-        required: ["name", "description"]
-      }
-    },
-    testimonials: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          quote: { type: Type.STRING },
-          author: { type: Type.STRING }
-        },
-        required: ["quote", "author"]
-      }
-    },
-    callToAction: { type: Type.STRING },
-    seoTitle: { type: Type.STRING },
-    seoDescription: { type: Type.STRING }
-  },
-  required: ["headline", "subheadline", "about", "offerings", "testimonials", "callToAction", "seoTitle", "seoDescription"]
+const getErrorStatus = (error: unknown) =>
+  typeof error === "object" && error !== null && "status" in error ? Number(error.status) : undefined;
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 };
 
 export const generateWebsiteContent = async (
   intake: BusinessIntake,
   context: RetrievedContext[]
 ): Promise<GeneratedContent> => {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || process.env.DISABLE_OPENAI === "true") {
     return fallbackContent(intake);
   }
 
-  const ai = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL ?? "gemini-2.0-flash";
+  if (Date.now() < openaiRetryAfter) {
+    return fallbackContent(intake);
+  }
+
+  const openai = new OpenAI({ apiKey });
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
   const prompt = `Create conversion-focused website copy for a small business.
 
 Business intake:
@@ -86,26 +67,41 @@ Rules:
 - Keep the tone "${intake.brandTone}".
 - Avoid exaggerated claims.
 - Produce concise copy suitable for a simple static website.
-- Use the provided offerings unless a small wording improvement is helpful.`;
+- Use the provided offerings unless a small wording improvement is helpful.
+- Return only valid JSON with these keys: headline, subheadline, about, offerings, testimonials, callToAction, seoTitle, seoDescription.
+- Each offering must include name, description, and priceHint.
+- Each testimonial must include quote and author.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await openai.chat.completions.create({
       model,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema
-      }
+      messages: [
+        {
+          role: "system",
+          content: "You write concise, conversion-focused website copy for small businesses and return only valid JSON."
+        },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" }
     });
 
-    const text = response.text;
+    const text = response.choices[0]?.message.content;
     if (!text) {
       return fallbackContent(intake);
     }
 
     return JSON.parse(text) as GeneratedContent;
   } catch (error) {
-    console.warn("Gemini generation failed. Falling back to local content.", error);
+    const status = getErrorStatus(error);
+    const message = getErrorMessage(error);
+
+    if (status === 429) {
+      openaiRetryAfter = Date.now() + 60_000;
+      console.warn("OpenAI quota or rate limit reached. Using local fallback content for the next 60 seconds.");
+    } else {
+      console.warn(`OpenAI generation failed. Using local fallback content. ${message}`);
+    }
+
     return fallbackContent(intake);
   }
 };

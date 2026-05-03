@@ -79,6 +79,11 @@ app.use((error: unknown, _request: express.Request, response: express.Response, 
   response.status(500).json({ message: "Unexpected server error" });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`Pixora API listening on http://localhost:${port}`);
+});
+
+server.on("error", (error) => {
+  console.error("Failed to start Pixora API", error);
+  process.exit(1);
 });
