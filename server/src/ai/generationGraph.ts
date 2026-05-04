@@ -3,7 +3,7 @@ import { createDeploymentPlan } from "../deployment/plan.js";
 import { retrieveContext } from "../rag/vectorStore.js";
 import { renderWebsite, selectTemplate } from "../templates/templates.js";
 import type { BusinessIntake, GeneratedSite, RetrievedContext } from "../types.js";
-import { generateWebsiteContent } from "./geminiService.js";
+import { generateWebsiteContent } from "./contentService.js";
 
 interface GenerationState {
   intake: BusinessIntake;
@@ -24,7 +24,7 @@ const templateNode = (state: GenerationState): GenerationState => ({
 export const runGenerationGraph = async (intake: BusinessIntake): Promise<GeneratedSite> => {
   const withContext = retrieveNode({ intake });
   const withTemplate = templateNode(withContext);
-  const content = await generateWebsiteContent(intake, withTemplate.context ?? []);
+  const { content, source } = await generateWebsiteContent(intake, withTemplate.context ?? []);
   const rendered = renderWebsite(intake, content, withTemplate.templateId ?? "local-service");
 
   return {
@@ -32,6 +32,7 @@ export const runGenerationGraph = async (intake: BusinessIntake): Promise<Genera
     templateId: withTemplate.templateId ?? "local-service",
     ...rendered,
     content,
+    generationSource: source,
     retrievedContext: withTemplate.context ?? [],
     deploymentPlan: createDeploymentPlan(intake)
   };

@@ -1,187 +1,474 @@
-<main class="shell">
-  <section class="panel intake-panel">
-    <div class="panel-header">
-      <p class="eyebrow">Pixora pipeline</p>
-      <h1>Generate owned websites for small businesses</h1>
-      <p>
-        Intake data flows into retrieval, Gemini content generation, template rendering, and a deployment-ready static site package.
-      </p>
+<!-- ═══════════════════════════════════════════════════════════ SESSION RESTORE -->
+<div class="splash" *ngIf="authLoading() && !user()">
+  <div class="splash-logo">
+    <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+      <rect width="36" height="36" rx="10" fill="#4afa7c"/>
+      <path d="M9 27 L18 9 L27 27 Z" fill="#050d08"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ AUTH SCREEN -->
+<div class="auth-screen" *ngIf="!user() && !authLoading()">
+  <div class="auth-brand">
+    <div class="brand-logo">
+      <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+        <rect width="36" height="36" rx="10" fill="#4afa7c"/>
+        <path d="M9 27 L18 9 L27 27 Z" fill="#050d08"/>
+      </svg>
+      <span>Pixora</span>
     </div>
 
-    <form [formGroup]="form" (ngSubmit)="generateSite()" class="form-grid">
-      <label>
-        Business name
-        <input formControlName="businessName" type="text">
+    <h1>Build polished websites<br>for every client.</h1>
+    <p class="auth-sub">
+      Go from business brief to a complete, deployment-ready website in seconds.
+      Every generation is yours to preview — save only what you want.
+    </p>
+
+    <ul class="auth-features">
+      <li><span class="check">✓</span>12 handcrafted professional templates</li>
+      <li><span class="check">✓</span>AI copy in English, Spanish &amp; Portuguese</li>
+      <li><span class="check">✓</span>Full package — HTML, CSS, deployment plan</li>
+      <li><span class="check">✓</span>Save only the websites you choose to keep</li>
+    </ul>
+  </div>
+
+  <div class="auth-panel">
+    <div class="auth-tabs">
+      <button type="button" [class.active]="authMode() === 'signup'" (click)="setAuthMode('signup')">Create account</button>
+      <button type="button" [class.active]="authMode() === 'login'" (click)="setAuthMode('login')">Sign in</button>
+    </div>
+
+    <form [formGroup]="authForm" (ngSubmit)="submitAuth()" class="auth-form">
+      <label class="field" *ngIf="authMode() === 'signup'">
+        <span>Full name</span>
+        <input formControlName="name" type="text" placeholder="Your name" autocomplete="name">
       </label>
-
-      <label>
-        Type
-        <select formControlName="businessType">
-          <option value="restaurant">Restaurant</option>
-          <option value="retail">Retail</option>
-          <option value="services">Services</option>
-          <option value="beauty">Beauty</option>
-          <option value="portfolio">Portfolio</option>
-        </select>
+      <label class="field">
+        <span>Email address</span>
+        <input formControlName="email" type="email" placeholder="you@example.com" autocomplete="email">
       </label>
-
-      <label>
-        City
-        <input formControlName="city" type="text">
+      <label class="field">
+        <span>Password</span>
+        <input
+          formControlName="password"
+          type="password"
+          [placeholder]="authMode() === 'signup' ? 'Minimum 8 characters' : 'Your password'"
+          autocomplete="current-password"
+        >
       </label>
-
-      <label>
-        Country
-        <input formControlName="country" type="text">
-      </label>
-
-      <label>
-        Language
-        <select formControlName="language">
-          <option value="es">Spanish</option>
-          <option value="en">English</option>
-          <option value="pt">Portuguese</option>
-        </select>
-      </label>
-
-      <label>
-        Brand tone
-        <select formControlName="brandTone">
-          <option value="warm">Warm</option>
-          <option value="modern">Modern</option>
-          <option value="premium">Premium</option>
-          <option value="playful">Playful</option>
-          <option value="traditional">Traditional</option>
-        </select>
-      </label>
-
-      <label class="wide">
-        Description
-        <textarea formControlName="description" rows="4"></textarea>
-      </label>
-
-      <label class="wide">
-        Target audience
-        <input formControlName="audience" type="text">
-      </label>
-
-      <label class="wide">
-        Brand colors
-        <input formControlName="colors" type="text" placeholder="#315c48, #e6b85c">
-      </label>
-
-      <label class="wide">
-        Hero image URL
-        <input formControlName="heroImageUrl" type="url" placeholder="https://images.example.com/storefront.jpg">
-      </label>
-
-      <label class="wide">
-        Gallery image URLs
-        <textarea formControlName="galleryImageUrlsText" rows="3" placeholder="One image URL per line"></textarea>
-      </label>
-
-      <fieldset class="wide section-picker">
-        <legend>Website sections</legend>
-        <label *ngFor="let section of sectionOptions">
-          <input
-            type="checkbox"
-            [checked]="sectionSelected(section.value)"
-            (change)="toggleSection(section.value, $any($event.target).checked)"
-          >
-          <span>{{ section.label }}</span>
-        </label>
-      </fieldset>
-
-      <label class="wide">
-        Offerings
-        <textarea formControlName="offeringsText" rows="4"></textarea>
-      </label>
-
-      <label>
-        Email
-        <input formControlName="contactEmail" type="email">
-      </label>
-
-      <label>
-        Phone
-        <input formControlName="phone" type="text">
-      </label>
-
-      <label>
-        WhatsApp
-        <input formControlName="whatsapp" type="text">
-      </label>
-
-      <label>
-        Address
-        <input formControlName="address" type="text">
-      </label>
-
-      <label class="wide">
-        Social links
-        <input formControlName="socialLinks" type="text">
-      </label>
-
-      <button class="primary-action wide" type="submit" [disabled]="loading()">
-        {{ loading() ? "Generating..." : "Generate website" }}
+      <button class="btn-primary btn-full" type="submit" [disabled]="authLoading()">
+        {{ authLoading() ? 'Working…' : authMode() === 'signup' ? 'Create account' : 'Sign in' }}
       </button>
-
-      <p class="error wide" *ngIf="error()">{{ error() }}</p>
+      <p class="form-error" *ngIf="authError()">{{ authError() }}</p>
     </form>
-  </section>
+  </div>
+</div>
 
-  <section class="workspace">
-    <div class="preview-header">
-      <div>
-        <p class="eyebrow">Generated output</p>
-        <h2>{{ generatedSite() ? "Website preview" : "Waiting for intake" }}</h2>
-      </div>
-      <span *ngIf="generatedSite()">Template: {{ generatedSite()?.templateId }}</span>
+<!-- ═══════════════════════════════════════════════════════════ APP SHELL -->
+<div class="app-shell" *ngIf="user()">
+
+  <!-- ─── SIDEBAR ─── -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 36 36" fill="none" width="28" height="28">
+        <rect width="36" height="36" rx="10" fill="#4afa7c"/>
+        <path d="M9 27 L18 9 L27 27 Z" fill="#050d08"/>
+      </svg>
+      <span>Pixora</span>
     </div>
 
-    <div class="preview-frame" *ngIf="previewSource(); else emptyState">
-      <iframe title="Generated website preview" [src]="previewSource()"></iframe>
-    </div>
+    <nav class="sidebar-nav">
+      <button type="button" class="nav-item" [class.active]="activeView() === 'dashboard'" (click)="setView('dashboard')">
+        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+          <rect x="2" y="2" width="7" height="7" rx="2" fill="currentColor"/>
+          <rect x="11" y="2" width="7" height="7" rx="2" fill="currentColor" opacity=".5"/>
+          <rect x="2" y="11" width="7" height="7" rx="2" fill="currentColor" opacity=".5"/>
+          <rect x="11" y="11" width="7" height="7" rx="2" fill="currentColor"/>
+        </svg>
+        Dashboard
+      </button>
+      <button type="button" class="nav-item" [class.active]="activeView() === 'generator'" (click)="setView('generator')">
+        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+          <path d="M10 2l2 5.5 5.5 1-4 4 1 5.5L10 15.5 5.5 18l1-5.5-4-4 5.5-1L10 2z" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+        </svg>
+        New website
+      </button>
+      <button type="button" class="nav-item" [class.active]="activeView() === 'library'" (click)="setView('library')">
+        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+          <rect x="2" y="3" width="16" height="3" rx="1.5" fill="currentColor"/>
+          <rect x="2" y="9" width="16" height="3" rx="1.5" fill="currentColor" opacity=".6"/>
+          <rect x="2" y="15" width="10" height="3" rx="1.5" fill="currentColor" opacity=".4"/>
+        </svg>
+        Library
+        <span class="nav-badge" *ngIf="generations().length">{{ generations().length }}</span>
+      </button>
+    </nav>
 
-    <ng-template #emptyState>
-      <div class="empty-state">
-        <h2>Fill the form and generate a first site.</h2>
-        <p>The backend will retrieve relevant guidance, create copy, render files, and return deployment steps.</p>
+    <div class="sidebar-user">
+      <div class="avatar">{{ user()?.name?.[0]?.toUpperCase() }}</div>
+      <div class="user-text">
+        <strong>{{ user()?.name }}</strong>
+        <small>{{ user()?.email }}</small>
       </div>
-    </ng-template>
+      <button type="button" class="signout-btn" (click)="logout()" title="Sign out">
+        <svg viewBox="0 0 20 20" fill="none" width="15" height="15">
+          <path d="M13 7l3 3-3 3M16 10H8M10 4H5a1 1 0 00-1 1v10a1 1 0 001 1h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </aside>
 
-    <div class="output-grid" *ngIf="generatedSite() as site">
-      <section class="output-panel">
-        <div class="tabs">
-          <button
-            *ngFor="let file of site.files; let i = index"
-            type="button"
-            [class.active]="i === selectedFileIndex()"
-            (click)="selectedFileIndex.set(i)"
-          >
-            {{ file.path }}
+  <!-- ─── MAIN ─── -->
+  <main class="main">
+
+    <!-- ════ DASHBOARD VIEW ════ -->
+    <div class="view" *ngIf="activeView() === 'dashboard'">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">Welcome back</p>
+          <h1>{{ firstNameDisplay() }}'s workspace</h1>
+        </div>
+        <button type="button" class="btn-primary" (click)="setView('generator')">
+          <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+            <path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          New website
+        </button>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <span>Websites saved</span>
+          <strong>{{ stats().websites }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Templates used</span>
+          <strong>{{ stats().templates }}</strong>
+        </div>
+        <div class="stat-card">
+          <span>Latest save</span>
+          <strong class="stat-date">{{ stats().latest }}</strong>
+        </div>
+      </div>
+
+      <div class="section-block">
+        <div class="section-head">
+          <h2>Recent websites</h2>
+          <button type="button" class="btn-ghost" (click)="setView('library')" *ngIf="generations().length > 3">View all</button>
+        </div>
+
+        <div class="skeleton-grid" *ngIf="libraryLoading()">
+          <div class="site-card-skeleton" *ngFor="let i of [1,2,3]"></div>
+        </div>
+
+        <div class="sites-grid" *ngIf="!libraryLoading() && generations().length">
+          <button type="button" class="site-card" *ngFor="let g of generations().slice(0, 6)" (click)="openGeneration(g.id)">
+            <div class="site-card-stripe" [attr.data-type]="g.businessType"></div>
+            <div class="site-card-body">
+              <div class="site-tags">
+                <span class="tag">{{ g.businessType }}</span>
+                <span class="tag dim">{{ g.templateId }}</span>
+              </div>
+              <strong class="site-name">{{ g.businessName }}</strong>
+              <time class="site-date">{{ g.createdAt | date:'MMM d, y' }}</time>
+            </div>
           </button>
         </div>
-        <pre><code>{{ activeFile()?.content }}</code></pre>
-      </section>
 
-      <section class="output-panel">
-        <h3>Retrieved context</h3>
-        <article *ngFor="let item of site.retrievedContext">
-          <strong>{{ item.title }}</strong>
-          <span>Score {{ item.score }}</span>
-          <p>{{ item.content }}</p>
-        </article>
-      </section>
-
-      <section class="output-panel deployment">
-        <h3>Deployment plan</h3>
-        <p>Repository: <strong>{{ site.deploymentPlan.repositoryName }}</strong></p>
-        <p>Host: <strong>{{ site.deploymentPlan.suggestedHost }}</strong></p>
-        <ol>
-          <li *ngFor="let step of site.deploymentPlan.steps">{{ step }}</li>
-        </ol>
-      </section>
+        <div class="empty-state" *ngIf="!libraryLoading() && !generations().length">
+          <div class="empty-icon">
+            <svg viewBox="0 0 56 56" fill="none" width="56" height="56">
+              <rect x="8" y="8" width="40" height="40" rx="10" stroke="currentColor" stroke-width="1.5" opacity=".2"/>
+              <path d="M28 20v16M20 28h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+            </svg>
+          </div>
+          <strong>No saved websites yet</strong>
+          <p>Generate a site, then save the ones you want to keep.</p>
+          <button type="button" class="btn-primary" (click)="setView('generator')">Get started</button>
+        </div>
+      </div>
     </div>
-  </section>
-</main>
+
+    <!-- ════ GENERATOR VIEW ════ -->
+    <div class="view gen-view" *ngIf="activeView() === 'generator'">
+
+      <!-- ── Left: scrollable form panel ── -->
+      <div class="form-panel">
+        <div class="form-panel-head">
+          <div>
+            <p class="eyebrow">Generator</p>
+            <h2>Website brief</h2>
+          </div>
+          <button type="button" class="btn-primary btn-generate-top" (click)="generateSite()" [disabled]="loading()">
+            <span *ngIf="!loading()">Generate</span>
+            <span *ngIf="loading()" class="spinner-label"><span class="spinner"></span></span>
+          </button>
+        </div>
+
+        <p class="form-error" *ngIf="error()">{{ error() }}</p>
+
+        <form [formGroup]="form" (ngSubmit)="generateSite()">
+          <div class="form-section">
+            <div class="form-section-label">
+              <span class="section-num">01</span>
+              <div><h3>Business</h3><p>Name, type, location</p></div>
+            </div>
+            <div class="field-grid">
+              <label class="field col-2"><span>Business name <em>*</em></span><input formControlName="businessName" type="text" placeholder="e.g. Cafe Aurora"></label>
+              <label class="field"><span>Type <em>*</em></span>
+                <select formControlName="businessType">
+                  <option value="restaurant">Restaurant</option>
+                  <option value="retail">Retail</option>
+                  <option value="services">Services</option>
+                  <option value="beauty">Beauty</option>
+                  <option value="portfolio">Portfolio</option>
+                </select>
+              </label>
+              <label class="field"><span>Language <em>*</em></span>
+                <select formControlName="language">
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="pt">Portuguese</option>
+                </select>
+              </label>
+              <label class="field"><span>City <em>*</em></span><input formControlName="city" type="text" placeholder="e.g. Medellin"></label>
+              <label class="field"><span>Country <em>*</em></span><input formControlName="country" type="text" placeholder="e.g. Colombia"></label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">
+              <span class="section-num">02</span>
+              <div><h3>Brand identity</h3><p>Tone, description, audience</p></div>
+            </div>
+            <div class="field-grid">
+              <label class="field col-2"><span>Description <em>*</em></span><textarea formControlName="description" rows="3" placeholder="Describe your business in 1–3 sentences…"></textarea></label>
+              <label class="field col-2"><span>Target audience <em>*</em></span><input formControlName="audience" type="text" placeholder="e.g. local residents, students, remote workers"></label>
+              <label class="field"><span>Brand tone <em>*</em></span>
+                <select formControlName="brandTone">
+                  <option value="warm">Warm</option>
+                  <option value="modern">Modern</option>
+                  <option value="premium">Premium</option>
+                  <option value="playful">Playful</option>
+                  <option value="traditional">Traditional</option>
+                </select>
+              </label>
+              <label class="field"><span>Brand colors <em>*</em></span><input formControlName="colors" type="text" placeholder="#primary, #accent"></label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">
+              <span class="section-num">03</span>
+              <div><h3>Content</h3><p>Sections and offerings</p></div>
+            </div>
+            <div class="field-grid">
+              <fieldset class="field col-2 section-picker">
+                <legend>Website sections</legend>
+                <label class="chip" *ngFor="let s of sectionOptions">
+                  <input type="checkbox" [checked]="sectionSelected(s.value)" (change)="toggleSection(s.value, $any($event.target).checked)">
+                  <span>{{ s.label }}</span>
+                </label>
+              </fieldset>
+              <label class="field col-2"><span>Offerings <small>(one per line)</small> <em>*</em></span><textarea formControlName="offeringsText" rows="5" placeholder="Specialty coffee&#10;Breakfast plates&#10;Fresh pastries&#10;Catering"></textarea></label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">
+              <span class="section-num">04</span>
+              <div><h3>Images</h3><p>Optional — curated fallbacks used if blank</p></div>
+            </div>
+            <div class="field-grid">
+              <label class="field col-2"><span>Hero image URL</span><input formControlName="heroImageUrl" type="url" placeholder="https://images.example.com/hero.jpg"></label>
+              <label class="field col-2"><span>Gallery image URLs <small>(one per line)</small></span><textarea formControlName="galleryImageUrlsText" rows="3" placeholder="https://…&#10;https://…"></textarea></label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="form-section-label">
+              <span class="section-num">05</span>
+              <div><h3>Contact</h3><p>How visitors reach you</p></div>
+            </div>
+            <div class="field-grid">
+              <label class="field col-2"><span>Contact email <em>*</em></span><input formControlName="contactEmail" type="email" placeholder="hello@yourbusiness.com"></label>
+              <label class="field"><span>Phone</span><input formControlName="phone" type="tel" placeholder="+1 555 000 0000"></label>
+              <label class="field"><span>WhatsApp</span><input formControlName="whatsapp" type="tel" placeholder="+1 555 000 0000"></label>
+              <label class="field col-2"><span>Address</span><input formControlName="address" type="text" placeholder="123 Main St, City"></label>
+              <label class="field col-2"><span>Social links</span><input formControlName="socialLinks" type="text" placeholder="Instagram: @handle"></label>
+            </div>
+          </div>
+
+          <button class="btn-primary btn-full btn-generate-bottom" type="submit" [disabled]="loading()">
+            <span *ngIf="!loading()">Generate website</span>
+            <span *ngIf="loading()" class="spinner-label"><span class="spinner"></span>Building…</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- ── Right: Preview (sticky, full height) ── -->
+      <div class="preview-panel">
+
+        <!-- Browser chrome bar -->
+        <div class="browser-bar">
+          <div class="browser-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <div class="browser-url">
+            {{ generatedSite() ? (generatedSite()?.templateId + ' · ' + (form.value.businessName || 'preview')) : 'Ready to generate' }}
+          </div>
+          <button
+            type="button"
+            class="maximize-btn"
+            (click)="isMaximized.set(true)"
+            *ngIf="generatedSite()"
+            title="Fullscreen preview"
+          >
+            <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+              <path d="M3 6V3h3M13 6V3h-3M3 10v3h3M13 10v3h-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Iframe / empty state -->
+        <div class="preview-viewport" *ngIf="previewSource(); else noPreview">
+          <iframe title="Website preview" [src]="previewSource()"></iframe>
+        </div>
+
+        <ng-template #noPreview>
+          <div class="preview-empty" [class.loading]="loading()">
+            <div *ngIf="!loading()">
+              <svg viewBox="0 0 160 110" fill="none" width="160">
+                <rect x="10" y="10" width="140" height="90" rx="10" stroke="currentColor" stroke-width="1" opacity=".1"/>
+                <rect x="20" y="22" width="120" height="16" rx="5" fill="currentColor" opacity=".06"/>
+                <rect x="20" y="50" width="80" height="9" rx="4" fill="currentColor" opacity=".05"/>
+                <rect x="20" y="64" width="56" height="9" rx="4" fill="currentColor" opacity=".04"/>
+                <rect x="112" y="50" width="28" height="22" rx="4" fill="currentColor" opacity=".05"/>
+              </svg>
+              <p>Fill in the brief and generate a site.</p>
+            </div>
+            <div *ngIf="loading()" class="preview-generating">
+              <div class="gen-pulse"></div>
+              <p>Building your website…</p>
+            </div>
+          </div>
+        </ng-template>
+
+        <!-- Action bar (save + metadata) — only shows after generation -->
+        <div class="preview-actions" *ngIf="generatedSite() as site">
+          <div class="action-left">
+            <span class="template-badge">{{ site.templateId }}</span>
+            <span class="source-badge" [class.ai]="!site.generationSource?.fallback">
+              {{ site.generationSource?.fallback ? 'Template copy' : 'AI generated' }}
+            </span>
+          </div>
+          <button
+            type="button"
+            class="btn-save"
+            (click)="saveCurrentSite()"
+            [disabled]="isSaved() || saving()"
+            [class.saved]="isSaved()"
+          >
+            <svg viewBox="0 0 16 16" fill="none" width="13" height="13" *ngIf="!isSaved()">
+              <path d="M13 7H9V3H7v4H3l5 5 5-5z" fill="currentColor"/>
+              <path d="M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <svg viewBox="0 0 16 16" fill="none" width="13" height="13" *ngIf="isSaved()">
+              <path d="M3 8l4 4 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ saving() ? 'Saving…' : isSaved() ? 'Saved' : 'Save to library' }}
+          </button>
+        </div>
+
+        <!-- File tabs + code viewer -->
+        <div class="file-viewer" *ngIf="generatedSite() as site">
+          <div class="file-tabs">
+            <button
+              type="button"
+              class="file-tab"
+              *ngFor="let file of site.files; let i = index"
+              [class.active]="i === selectedFileIndex()"
+              (click)="selectedFileIndex.set(i)"
+            >{{ file.path }}</button>
+          </div>
+          <pre class="code-block"><code>{{ activeFile()?.content }}</code></pre>
+
+          <div class="deploy-card">
+            <h4>Deployment plan</h4>
+            <div class="deploy-meta">
+              <div class="deploy-row"><span>Repository</span><strong>{{ site.deploymentPlan.repositoryName }}</strong></div>
+              <div class="deploy-row"><span>Host</span><strong>{{ site.deploymentPlan.suggestedHost }}</strong></div>
+            </div>
+            <ol class="deploy-steps">
+              <li *ngFor="let step of site.deploymentPlan.steps">{{ step }}</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ LIBRARY VIEW ════ -->
+    <div class="view" *ngIf="activeView() === 'library'">
+      <div class="page-head">
+        <div>
+          <p class="eyebrow">Library</p>
+          <h1>All websites</h1>
+        </div>
+        <span class="count-pill">{{ generations().length }} saved</span>
+      </div>
+
+      <div class="skeleton-grid" *ngIf="libraryLoading()">
+        <div class="site-card-skeleton" *ngFor="let i of [1,2,3,4,5,6]"></div>
+      </div>
+
+      <div class="sites-grid" *ngIf="!libraryLoading() && generations().length">
+        <button type="button" class="site-card" *ngFor="let g of generations()" (click)="openGeneration(g.id)">
+          <div class="site-card-stripe" [attr.data-type]="g.businessType"></div>
+          <div class="site-card-body">
+            <div class="site-tags">
+              <span class="tag">{{ g.businessType }}</span>
+              <span class="tag dim">{{ g.templateId }}</span>
+            </div>
+            <strong class="site-name">{{ g.businessName }}</strong>
+            <time class="site-date">{{ g.createdAt | date:'MMM d, y · h:mm a' }}</time>
+          </div>
+        </button>
+      </div>
+
+      <div class="empty-state" *ngIf="!libraryLoading() && !generations().length">
+        <div class="empty-icon">
+          <svg viewBox="0 0 56 56" fill="none" width="56" height="56">
+            <rect x="8" y="8" width="40" height="40" rx="10" stroke="currentColor" stroke-width="1.5" opacity=".2"/>
+            <path d="M28 20v16M20 28h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+          </svg>
+        </div>
+        <strong>No saved websites yet</strong>
+        <p>Generate a site and click "Save to library" to keep it here.</p>
+        <button type="button" class="btn-primary" (click)="setView('generator')">Create first website</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ FULLSCREEN OVERLAY -->
+<div class="maximize-overlay" *ngIf="isMaximized() && previewSource()">
+  <div class="maximize-bar">
+    <div class="browser-dots">
+      <span class="dot dot-red"></span>
+      <span class="dot dot-yellow"></span>
+      <span class="dot dot-green"></span>
+    </div>
+    <span class="maximize-title">{{ generatedSite()?.templateId }} · {{ form.value.businessName }}</span>
+    <button type="button" class="close-maximize" (click)="isMaximized.set(false)">
+      <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+        <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      Close
+    </button>
+  </div>
+  <iframe class="maximize-iframe" title="Website fullscreen preview" [src]="previewSource()"></iframe>
+</div>

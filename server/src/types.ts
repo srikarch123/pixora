@@ -62,16 +62,39 @@ export interface RenderedFile {
   content: string;
 }
 
+export interface GenerationSource {
+  provider: "openai" | "local-fallback";
+  model: string;
+  fallback: boolean;
+  message: string;
+}
+
 export interface GeneratedSite {
   id: string;
   templateId: string;
   previewHtml: string;
   files: RenderedFile[];
   content: GeneratedContent;
+  generationSource: GenerationSource;
   retrievedContext: RetrievedContext[];
   deploymentPlan: {
     repositoryName: string;
     suggestedHost: "vercel" | "netlify" | "cloudflare-pages";
     steps: string[];
   };
+}
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface GenerationSummary {
+  id: string;
+  businessName: string;
+  businessType: BusinessType;
+  templateId: string;
+  createdAt: string;
 }

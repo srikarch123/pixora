@@ -22,6 +22,26 @@ export interface BusinessIntake {
   socialLinks?: string;
 }
 
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: UserAccount;
+}
+
+export interface GenerationSummary {
+  id: string;
+  businessName: string;
+  businessType: BusinessType;
+  templateId: string;
+  createdAt: string;
+}
+
 export interface GeneratedSite {
   id: string;
   templateId: string;
@@ -31,6 +51,12 @@ export interface GeneratedSite {
     language: "html" | "css" | "json" | "text";
     content: string;
   }>;
+  generationSource?: {
+    provider: "openai" | "local-fallback";
+    model: string;
+    fallback: boolean;
+    message: string;
+  };
   retrievedContext: Array<{
     id: string;
     title: string;
