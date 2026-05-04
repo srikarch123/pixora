@@ -105,12 +105,157 @@ export const templates: WebsiteTemplate[] = [
     bestFor: ["beauty", "services"],
     imageGuidance: "Bright, airy, soft-lit photos — natural light, clean environments, or calm details.",
     description: "Soft and spacious wellness layout with rounded shapes, gentle gradients, and serene whitespace."
+  },
+
+  /* ── RESTAURANT — exclusive ── */
+  {
+    id: "restaurant-tableside",
+    name: "Tableside",
+    bestFor: ["restaurant"],
+    imageGuidance: "Moody, atmospheric food or interior photo. Dark and intimate shots work best.",
+    description: "Fine-dining template with a full-bleed dark hero, elegant menu row layout, and accent-gold typography."
+  },
+  {
+    id: "restaurant-chalkboard",
+    name: "Chalkboard Special",
+    bestFor: ["restaurant"],
+    imageGuidance: "Warm interior, candid staff, or natural-light food photo.",
+    description: "Casual café template with a warm split hero and a chalkboard-style specials section."
+  },
+  {
+    id: "restaurant-open-kitchen",
+    name: "Open Kitchen",
+    bestFor: ["restaurant"],
+    imageGuidance: "Action shots — kitchen, plating, food close-ups, or a lively dining room.",
+    description: "Modern restaurant template built around an asymmetric headline block and a horizontal photo strip."
+  },
+  {
+    id: "restaurant-street-food",
+    name: "Street Special",
+    bestFor: ["restaurant"],
+    imageGuidance: "Bold, vibrant food photography. Colorful dishes and high-energy shots shine here.",
+    description: "High-energy fast-casual template with an accent-colored hero and oversized numbered menu cards."
+  },
+
+  /* ── RETAIL — exclusive ── */
+  {
+    id: "retail-editorial-spread",
+    name: "Editorial Spread",
+    bestFor: ["retail"],
+    imageGuidance: "Full-bleed editorial or product photography. Clean backgrounds and strong composition.",
+    description: "Luxury fashion editorial layout with full-height hero, alternating image-text spreads, and dramatic pacing."
+  },
+  {
+    id: "retail-market-stall",
+    name: "Market Stall",
+    bestFor: ["retail"],
+    imageGuidance: "Warm product or lifestyle photos. Handmade, artisan, and market shots look great.",
+    description: "Artisan market template with warm rounded cards, a story-forward layout, and a crafted product grid."
+  },
+  {
+    id: "retail-product-drop",
+    name: "Product Drop",
+    bestFor: ["retail"],
+    imageGuidance: "High-contrast product photos on clean or dark backgrounds. Bold and graphic.",
+    description: "Dark-mode urban retail template inspired by hype drops — sharp contrast, bold type, and edge."
+  },
+  {
+    id: "retail-boutique-clean",
+    name: "Boutique Clean",
+    bestFor: ["retail"],
+    imageGuidance: "Single hero product or lifestyle image with clean composition and a neutral background.",
+    description: "Swiss-minimalist boutique template with full-height hero, extreme whitespace, and restrained elegance."
+  },
+
+  /* ── SERVICES — exclusive ── */
+  {
+    id: "services-agency-bold",
+    name: "Agency Bold",
+    bestFor: ["services"],
+    imageGuidance: "Creative team, workspace, or bold work-in-progress imagery.",
+    description: "Creative agency template with color-blocked rows, large numbered services, and an asymmetric about section."
+  },
+  {
+    id: "services-local-trust",
+    name: "Local Trust",
+    bestFor: ["services"],
+    imageGuidance: "Team, job site, or before-and-after photos. Friendly and local.",
+    description: "Neighbourhood service provider template focused on checklists, trust signals, and a warm local feel."
+  },
+  {
+    id: "services-corporate-edge",
+    name: "Corporate Edge",
+    bestFor: ["services"],
+    imageGuidance: "Professional team portrait, modern office, or a clean service-in-action photo.",
+    description: "B2B professional services template with a stat strip, process timeline, and a formal grid layout."
+  },
+  {
+    id: "services-freelance-card",
+    name: "Freelance Card",
+    bestFor: ["services"],
+    imageGuidance: "Professional portrait or clean personal brand photo against a simple background.",
+    description: "Personal brand template for freelancers and consultants — skills-forward, card-based, and direct."
+  },
+
+  /* ── BEAUTY — exclusive ── */
+  {
+    id: "beauty-glam-editorial",
+    name: "Glam Editorial",
+    bestFor: ["beauty"],
+    imageGuidance: "Dramatic, moody beauty photography. Low-key lighting and editorial composition.",
+    description: "High-glamour beauty template with a dark split hero, oversized quote band, and accent-gold highlights."
+  },
+  {
+    id: "beauty-salon-chic",
+    name: "Salon Chic",
+    bestFor: ["beauty"],
+    imageGuidance: "Modern salon environment, stylist at work, or polished result shots.",
+    description: "Modern salon template with a split hero, horizontal service cards, and an appointment-focused flow."
+  },
+  {
+    id: "beauty-natural-glow",
+    name: "Natural Glow",
+    bestFor: ["beauty"],
+    imageGuidance: "Bright, airy natural beauty — clean skin, botanical details, and natural light.",
+    description: "Organic beauty template with soft rounded shapes, gentle surface gradients, and a calm natural aesthetic."
+  },
+  {
+    id: "beauty-nail-pop",
+    name: "Nail Pop",
+    bestFor: ["beauty"],
+    imageGuidance: "Close-up nail art or expressive beauty work. The bolder the colours, the better.",
+    description: "Playful nail and colour beauty template with an accent mosaic hero and pill-shaped service cards."
+  },
+
+  /* ── PORTFOLIO — exclusive ── */
+  {
+    id: "portfolio-case-study",
+    name: "Case Study",
+    bestFor: ["portfolio"],
+    imageGuidance: "Project screenshots, mockups, process documentation, or final result photography.",
+    description: "Designer and developer portfolio with skill tags, numbered full-width case study rows, and a systematic layout."
+  },
+  {
+    id: "portfolio-gallery-flow",
+    name: "Gallery Flow",
+    bestFor: ["portfolio"],
+    imageGuidance: "4–6 strong portfolio images — the work speaks louder than any copy here.",
+    description: "Image-first portfolio with a staggered masonry gallery, minimal chrome, and quiet supporting copy."
+  },
+  {
+    id: "portfolio-personal-brand",
+    name: "Personal Brand",
+    bestFor: ["portfolio"],
+    imageGuidance: "Confident professional portrait with a clear or contextual background.",
+    description: "Authority-forward personal brand portfolio with a large primary-coloured hero, credential highlights, and direct contact."
   }
 ];
 
-export const selectTemplate = (businessType: BusinessType) => {
+export const selectTemplate = (businessType: BusinessType, usedTemplateIds: string[] = []) => {
   const candidates = templates.filter((t) => t.bestFor.includes(businessType));
-  return candidates[randomInt(candidates.length)] ?? templates[randomInt(templates.length)];
+  const fresh = candidates.filter((t) => !usedTemplateIds.includes(t.id));
+  const pool = fresh.length > 0 ? fresh : candidates;
+  return pool[randomInt(pool.length)] ?? templates[randomInt(templates.length)];
 };
 
 const escapeHtml = (value = "") =>
@@ -240,11 +385,37 @@ const baseDocument = (context: RenderContext, body: string, css: string) => {
   };
 };
 
+const namedColorMap: Record<string, string> = {
+  charcoal: "#202323",
+  cream: "#fff7e8",
+  gold: "#d6a43f",
+  navy: "#1f2a44",
+  sage: "#7f9b7a",
+  "sage green": "#7f9b7a",
+  teal: "#245c49",
+  white: "#ffffff"
+};
+
+const cssColorPattern =
+  /^(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-z]+)$/i;
+
+const sanitizeCssColor = (color: string | undefined, fallback: string) => {
+  const normalized = color?.trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (namedColorMap[normalized]) return namedColorMap[normalized];
+  return cssColorPattern.test(normalized) ? normalized : fallback;
+};
+
 const cssVariables = (intake: BusinessIntake) => {
   const [primary = "#245c49", accent = "#d6a43f", paper = "#fffdf8"] = intake.colors
     .split(",")
     .map((c) => c.trim())
     .filter(Boolean);
+  const sanitized = {
+    primary: sanitizeCssColor(primary, "#245c49"),
+    accent: sanitizeCssColor(accent, "#d6a43f"),
+    paper: sanitizeCssColor(paper, "#fffdf8")
+  };
   const tone = {
     warm: { radius: "18px", shadow: "0 18px 55px rgba(66,42,18,.13)", font: "ui-serif, Georgia, serif" },
     modern: { radius: "8px", shadow: "0 18px 50px rgba(18,28,35,.12)", font: "Inter, ui-sans-serif, system-ui, sans-serif" },
@@ -253,9 +424,9 @@ const cssVariables = (intake: BusinessIntake) => {
     traditional: { radius: "10px", shadow: "0 14px 40px rgba(50,42,31,.12)", font: "ui-serif, Georgia, serif" }
   }[intake.brandTone];
   return `:root {
-  --primary: ${primary};
-  --accent: ${accent};
-  --paper: ${paper};
+  --primary: ${sanitized.primary};
+  --accent: ${sanitized.accent};
+  --paper: ${sanitized.paper};
   --ink: #151b18;
   --muted: #65716b;
   --surface: color-mix(in srgb, var(--paper) 88%, var(--primary));
@@ -541,6 +712,641 @@ const wellnessLight: TemplateRenderer = ({ intake, content, assets }) => `
 </main>`;
 
 /* ═══════════════════════════════════════════════════════════════
+   RESTAURANT — EXCLUSIVE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+
+const restaurantTableside: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ts-header">
+  <a class="brand ts-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="ts-reserve" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="ts-hero">
+    <p class="eyebrow ts-eyebrow">${escapeHtml(intake.city)} &middot; fine dining</p>
+    <h1 class="ts-h1">${escapeHtml(content.headline)}</h1>
+    <p class="ts-sub">${escapeHtml(content.subheadline)}</p>
+    <a class="ts-reserve ts-hero-cta" href="#contact">${escapeHtml(content.callToAction)}</a>
+  </section>
+  <div class="ts-photo"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  <section id="about" class="section ts-story">
+    <div class="ts-rule"></div>
+    <p>${escapeHtml(content.about)}</p>
+    <div class="ts-rule"></div>
+  </section>
+  <section id="offerings" class="section ts-menu">
+    <p class="eyebrow">Menu highlights</p>
+    <h2>${escapeHtml(intake.businessName)}</h2>
+    <div class="ts-menu-list">
+      ${content.offerings.map((o) => `<div class="ts-row">
+        <div class="ts-row-left"><span class="ts-dish">${escapeHtml(o.name)}</span><span class="ts-desc">${escapeHtml(o.description)}</span></div>
+        ${o.priceHint ? `<span class="ts-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section class="section ts-quotes"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const restaurantChalkboard: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+</header>
+<main>
+  <section class="cb-hero">
+    <div class="cb-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+    <div class="cb-hero-copy">
+      <p class="eyebrow">${escapeHtml(intake.city)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+  </section>
+  <section id="about" class="section cb-about">
+    <p class="eyebrow">Our story</p>
+    <p>${escapeHtml(content.about)}</p>
+  </section>
+  <section id="offerings" class="cb-board">
+    <p class="eyebrow cb-board-eye">Today&apos;s specials</p>
+    <h2 class="cb-board-title">${escapeHtml(intake.businessName)}</h2>
+    <div class="cb-board-grid">
+      ${content.offerings.map((o) => `<div class="cb-item">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="cb-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="gallery" class="cb-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const restaurantOpenKitchen: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ok-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="ok-hero">
+    <div class="ok-headline">
+      <p class="eyebrow">${escapeHtml(intake.city)}, ${escapeHtml(intake.country)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+    </div>
+    <div class="ok-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <div class="ok-strip">${galleryHtml(assets.galleryImages.slice(0, 5))}</div>
+  <section id="about" class="section ok-about">
+    <div><p class="eyebrow">About</p><h2>${escapeHtml(intake.businessName)}</h2></div>
+    <p>${escapeHtml(content.about)}</p>
+  </section>
+  <section id="offerings" class="section ok-menu">
+    <p class="eyebrow">Menu</p>
+    <div class="cards">${offeringCards(content)}</div>
+  </section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const restaurantStreetFood: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header sf-header">
+  <a class="brand sf-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+</header>
+<main>
+  <section class="sf-hero">
+    <div class="sf-copy">
+      <p class="eyebrow sf-eye">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.businessType)}</p>
+      <h1 class="sf-h1">${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button sf-cta" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="sf-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <div class="sf-marquee" aria-hidden="true">
+    <span>${escapeHtml(intake.businessName)}</span><span>&middot;</span>
+    <span>${escapeHtml(intake.city)}</span><span>&middot;</span>
+    <span>${escapeHtml(intake.offerings.slice(0, 2).join(" &middot; "))}</span>
+  </div>
+  <section id="offerings" class="section sf-menu">
+    <p class="eyebrow">Order now</p>
+    <div class="sf-grid">
+      ${content.offerings.map((o, i) => `<div class="sf-card">
+        <span class="sf-num">0${i + 1}</span>
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<strong class="sf-price">${escapeHtml(o.priceHint)}</strong>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="about" class="section sf-about"><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></section>
+  <section id="gallery" class="sf-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  ${contactSection(intake)}
+</main>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   RETAIL — EXCLUSIVE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+
+const retailEditorialSpread: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header es-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+</header>
+<main>
+  <section class="es-hero">
+    <img class="es-hero-bg" src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}">
+    <div class="es-hero-copy">
+      <p class="eyebrow es-eye">${escapeHtml(intake.city)} collection</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+  </section>
+  ${content.offerings.slice(0, 3).map((o, i) => `<section class="es-spread${i % 2 !== 0 ? " es-spread-flip" : ""}">
+    <div class="es-spread-img"><img src="${escapeHtml(assets.galleryImages[i] ?? assets.heroImage)}" alt="${escapeHtml(o.name)}"></div>
+    <div class="es-spread-copy">
+      <p class="eyebrow">0${i + 1}</p>
+      <h2>${escapeHtml(o.name)}</h2>
+      <p>${escapeHtml(o.description)}</p>
+      ${o.priceHint ? `<strong class="es-price">${escapeHtml(o.priceHint)}</strong>` : ""}
+    </div>
+  </section>`).join("")}
+  <section id="about" class="section es-about"><p class="eyebrow">About</p><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></section>
+  <section id="gallery" class="es-gallery">${galleryHtml(assets.galleryImages)}</section>
+  ${contactSection(intake)}
+</main>`;
+
+const retailMarketStall: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ms-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+</header>
+<main>
+  <section class="ms-hero">
+    <div class="ms-hero-copy">
+      <p class="eyebrow">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.brandTone)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="ms-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="about" class="section ms-story">
+    <p class="eyebrow">Our story</p>
+    <h2>${escapeHtml(intake.businessName)}</h2>
+    <p>${escapeHtml(content.about)}</p>
+  </section>
+  <section id="offerings" class="section ms-products">
+    <p class="eyebrow">What we make</p>
+    <div class="ms-grid">${offeringCards(content, "ms-card")}</div>
+  </section>
+  <section id="gallery" class="ms-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const retailProductDrop: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header pd-header">
+  <a class="brand pd-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="pd-btn" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main class="pd-main">
+  <section class="pd-hero">
+    <div class="pd-hero-copy">
+      <p class="eyebrow pd-eye">${escapeHtml(intake.city)} drop</p>
+      <h1 class="pd-h1">${escapeHtml(content.headline)}</h1>
+      <p class="pd-sub">${escapeHtml(content.subheadline)}</p>
+      <a class="pd-btn pd-hero-cta" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="pd-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="offerings" class="section pd-drops">
+    <p class="eyebrow pd-eye">Available now</p>
+    <div class="pd-grid">
+      ${content.offerings.map((o) => `<div class="pd-item">
+        <h3 class="pd-item-name">${escapeHtml(o.name)}</h3>
+        <p class="pd-item-desc">${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="pd-item-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="about" class="section pd-about"><p class="pd-about-text">${escapeHtml(content.about)}</p></section>
+  <section id="gallery" class="pd-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  ${contactSection(intake)}
+</main>`;
+
+const retailBoutiqueClean: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header bc-header">
+  <a class="brand bc-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="bc-link" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="bc-hero"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></section>
+  <section id="about" class="section bc-intro">
+    <div class="bc-intro-inner">
+      <p class="eyebrow">${escapeHtml(intake.city)}</p>
+      <h2>${escapeHtml(content.headline)}</h2>
+      <p>${escapeHtml(content.about)}</p>
+    </div>
+  </section>
+  <section id="offerings" class="bc-catalog">
+    ${content.offerings.map((o, i) => `<div class="bc-item${i % 2 !== 0 ? " bc-item-alt" : ""}">
+      <div class="bc-item-img"><img src="${escapeHtml(assets.galleryImages[i] ?? assets.heroImage)}" alt="${escapeHtml(o.name)}"></div>
+      <div class="bc-item-copy">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="bc-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>
+    </div>`).join("")}
+  </section>
+  <section class="section bc-quotes"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   SERVICES — EXCLUSIVE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+
+const servicesAgencyBold: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ab-header">
+  <a class="brand ab-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="ab-hero">
+    <div class="ab-hero-inner">
+      <p class="eyebrow ab-eye">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.brandTone)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+    </div>
+    <p class="ab-sub">${escapeHtml(content.subheadline)}</p>
+  </section>
+  <section id="offerings" class="ab-services">
+    ${content.offerings.map((o, i) => `<div class="ab-row${i % 2 !== 0 ? " ab-alt" : ""}">
+      <span class="ab-num">0${i + 1}</span>
+      <div class="ab-row-copy"><h2>${escapeHtml(o.name)}</h2><p>${escapeHtml(o.description)}</p></div>
+      ${o.priceHint ? `<span class="ab-price">${escapeHtml(o.priceHint)}</span>` : ""}
+    </div>`).join("")}
+  </section>
+  <section id="about" class="ab-about">
+    <div class="ab-about-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+    <div class="ab-about-copy"><p class="eyebrow">About</p><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></div>
+  </section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const servicesLocalTrust: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="lt-hero">
+    <div class="lt-hero-copy">
+      <p class="eyebrow">${escapeHtml(intake.city)}, ${escapeHtml(intake.country)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <div class="lt-checks">
+        ${intake.offerings.slice(0, 4).map((o) => `<span class="lt-check">&#10003; ${escapeHtml(o)}</span>`).join("")}
+      </div>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="lt-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="offerings" class="section lt-services">
+    <p class="eyebrow">What we do</p>
+    <div class="cards">${offeringCards(content)}</div>
+  </section>
+  <section id="about" class="section lt-about"><p>${escapeHtml(content.about)}</p></section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const servicesCorporateEdge: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ce-header">
+  <a class="brand ce-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="ce-hero">
+    <div class="ce-hero-copy">
+      <p class="eyebrow ce-eye">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.country)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="ce-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <div class="ce-stats">
+    ${intake.offerings.slice(0, 3).map((o, i) => `<div class="ce-stat"><span class="ce-stat-n">0${i + 1}</span><span>${escapeHtml(o)}</span></div>`).join("")}
+  </div>
+  <section id="offerings" class="section ce-services">
+    <p class="eyebrow">Services</p>
+    <div class="cards">${offeringCards(content)}</div>
+  </section>
+  <section id="about" class="section ce-about">
+    <p class="eyebrow">About</p>
+    <div class="ce-about-grid"><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></div>
+  </section>
+  <div class="ce-process section">
+    <p class="eyebrow">How it works</p>
+    <div class="ce-steps">
+      ${content.offerings.slice(0, 4).map((o, i) => `<div class="ce-step"><span class="ce-step-n">${i + 1}</span><h3>${escapeHtml(o.name)}</h3></div>`).join("")}
+    </div>
+  </div>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const servicesFreelanceCard: TemplateRenderer = ({ intake, content, assets }) => `
+<main class="fc-main">
+  <header class="site-header fc-header">
+    <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+    ${nav(intake)}
+    <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+  </header>
+  <section class="fc-hero">
+    <div class="fc-hero-copy">
+      <p class="eyebrow fc-eye">${escapeHtml(intake.city)} &middot; available now</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p class="fc-sub">${escapeHtml(content.subheadline)}</p>
+      <div class="fc-tags">
+        ${intake.offerings.slice(0, 5).map((o) => `<span class="fc-tag">${escapeHtml(o)}</span>`).join("")}
+      </div>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="fc-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="about" class="section fc-about">
+    <div class="fc-about-card">
+      <p class="eyebrow">About</p>
+      <h2>${escapeHtml(intake.businessName)}</h2>
+      <p>${escapeHtml(content.about)}</p>
+    </div>
+  </section>
+  <section id="offerings" class="section fc-services">
+    <p class="eyebrow">Services</p>
+    <div class="fc-list">
+      ${content.offerings.map((o) => `<div class="fc-service">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="fc-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   BEAUTY — EXCLUSIVE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+
+const beautyGlamEditorial: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header bge-header">
+  <a class="brand bge-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="bge-btn" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main class="bge-main">
+  <section class="bge-hero">
+    <div class="bge-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+    <div class="bge-hero-copy">
+      <p class="eyebrow bge-eye">${escapeHtml(intake.city)} &middot; beauty</p>
+      <h1 class="bge-h1">${escapeHtml(content.headline)}</h1>
+      <p class="bge-sub">${escapeHtml(content.subheadline)}</p>
+      <a class="bge-btn" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+  </section>
+  <div class="bge-quote-band">
+    <blockquote class="bge-quote">&ldquo;${escapeHtml(content.testimonials[0]?.quote ?? content.subheadline)}&rdquo;</blockquote>
+  </div>
+  <section id="offerings" class="section bge-services">
+    <p class="eyebrow bge-eye">Services</p>
+    <div class="bge-cards">${offeringCards(content, "bge-card")}</div>
+  </section>
+  <section id="gallery" class="bge-gallery">${galleryHtml(assets.galleryImages)}</section>
+  <section id="about" class="section bge-about">
+    <p class="eyebrow bge-eye">About</p>
+    <h2 class="bge-about-h2">${escapeHtml(intake.businessName)}</h2>
+    <p class="bge-about-p">${escapeHtml(content.about)}</p>
+  </section>
+  ${contactSection(intake)}
+</main>`;
+
+const beautySalonChic: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="bsc-hero">
+    <div class="bsc-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+    <div class="bsc-hero-copy">
+      <p class="eyebrow">${escapeHtml(intake.city)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+  </section>
+  <section id="offerings" class="section bsc-services">
+    <p class="eyebrow">Our services</p>
+    <h2>For ${escapeHtml(intake.audience)}</h2>
+    <div class="bsc-cards">
+      ${content.offerings.map((o) => `<div class="bsc-card">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<strong class="bsc-price">${escapeHtml(o.priceHint)}</strong>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="gallery" class="bsc-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  <section id="about" class="section bsc-about">
+    <div class="bsc-about-copy"><p class="eyebrow">About</p><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></div>
+    <div class="bsc-about-quotes"><div class="cards">${testimonialBlock(content)}</div></div>
+  </section>
+  ${contactSection(intake)}
+</main>`;
+
+const beautyNaturalGlow: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header ng-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button ng-btn" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main class="ng-main">
+  <section class="section ng-hero">
+    <div class="ng-hero-copy">
+      <p class="eyebrow">${escapeHtml(intake.city)}</p>
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button ng-btn" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="ng-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="about" class="section ng-about">
+    <p class="eyebrow">Natural &middot; honest &middot; local</p>
+    <p>${escapeHtml(content.about)}</p>
+  </section>
+  <section id="offerings" class="section ng-treatments">
+    <p class="eyebrow">Treatments</p>
+    <h2>For ${escapeHtml(intake.audience)}</h2>
+    <div class="ng-cards">
+      ${content.offerings.map((o) => `<div class="ng-card">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="ng-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="gallery" class="ng-gallery">${galleryHtml(assets.galleryImages.slice(0, 4))}</section>
+  <section class="section ng-quotes"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const beautyNailPop: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header np-header">
+  <a class="brand np-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="np-btn" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="np-hero">
+    <div class="np-hero-copy">
+      <p class="eyebrow np-eye">${escapeHtml(intake.city)} &middot; beauty</p>
+      <h1 class="np-h1">${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="np-btn np-hero-btn" href="#offerings">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="np-mosaic">
+      ${assets.galleryImages.slice(0, 4).map((img, i) => `<img src="${escapeHtml(img)}" alt="Gallery ${i + 1}" class="np-tile">`).join("")}
+    </div>
+  </section>
+  <section id="offerings" class="section np-services">
+    <p class="eyebrow">What we offer</p>
+    <div class="np-pills">
+      ${content.offerings.map((o) => `<div class="np-pill">
+        <h3>${escapeHtml(o.name)}</h3>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="np-pill-price">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>`).join("")}
+    </div>
+  </section>
+  <section id="about" class="section np-about"><p>${escapeHtml(content.about)}</p></section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+/* ═══════════════════════════════════════════════════════════════
+   PORTFOLIO — EXCLUSIVE RENDERERS
+═══════════════════════════════════════════════════════════════ */
+
+const portfolioCaseStudy: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header cs-header">
+  <a class="brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="section cs-hero">
+    <p class="eyebrow">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.businessType)}</p>
+    <h1>${escapeHtml(content.headline)}</h1>
+    <p class="cs-sub">${escapeHtml(content.subheadline)}</p>
+    <div class="cs-skills">
+      ${intake.offerings.slice(0, 6).map((o) => `<span class="cs-skill">${escapeHtml(o)}</span>`).join("")}
+    </div>
+  </section>
+  <div class="cs-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  <section id="about" class="section cs-about">
+    <p class="eyebrow">About</p>
+    <div class="cs-about-grid"><h2>${escapeHtml(intake.businessName)}</h2><p>${escapeHtml(content.about)}</p></div>
+  </section>
+  <section id="offerings" class="cs-work">
+    ${content.offerings.map((o, i) => `<div class="cs-case">
+      <div class="cs-case-num">0${i + 1}</div>
+      <div class="cs-case-img"><img src="${escapeHtml(assets.galleryImages[i] ?? assets.heroImage)}" alt="${escapeHtml(o.name)}"></div>
+      <div class="cs-case-copy">
+        <h2>${escapeHtml(o.name)}</h2>
+        <p>${escapeHtml(o.description)}</p>
+        ${o.priceHint ? `<span class="cs-tag">${escapeHtml(o.priceHint)}</span>` : ""}
+      </div>
+    </div>`).join("")}
+  </section>
+  <section class="section"><div class="cards">${testimonialBlock(content)}</div></section>
+  ${contactSection(intake)}
+</main>`;
+
+const portfolioGalleryFlow: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header gf-header">
+  <a class="brand gf-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+</header>
+<main>
+  <section class="gf-hero">
+    <div class="gf-hero-copy">
+      <h1>${escapeHtml(content.headline)}</h1>
+      <p>${escapeHtml(content.subheadline)}</p>
+      <a class="button gf-btn" href="#gallery">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="gf-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="gallery" class="gf-masonry">
+    ${assets.galleryImages.map((img, i) => `<img src="${escapeHtml(img)}" alt="${escapeHtml(intake.businessName)} ${i + 1}" loading="lazy" class="gf-img gf-img-${i % 3}">`).join("")}
+  </section>
+  <section id="about" class="section gf-about"><p>${escapeHtml(content.about)}</p></section>
+  <section id="offerings" class="section gf-services">
+    <p class="eyebrow">Services</p>
+    <div class="gf-list">
+      ${content.offerings.map((o) => `<div class="gf-item"><h3>${escapeHtml(o.name)}</h3><p>${escapeHtml(o.description)}</p>${o.priceHint ? `<span class="gf-price">${escapeHtml(o.priceHint)}</span>` : ""}</div>`).join("")}
+    </div>
+  </section>
+  ${contactSection(intake)}
+</main>`;
+
+const portfolioPersonalBrand: TemplateRenderer = ({ intake, content, assets }) => `
+<header class="site-header pb-header">
+  <a class="brand pb-brand" href="#">${escapeHtml(intake.businessName)}</a>
+  ${nav(intake)}
+  <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+</header>
+<main>
+  <section class="pb-hero">
+    <div class="pb-hero-copy">
+      <p class="eyebrow pb-eye">${escapeHtml(intake.city)} &middot; ${escapeHtml(intake.businessType)}</p>
+      <h1 class="pb-name">${escapeHtml(intake.businessName)}</h1>
+      <p class="pb-tagline">${escapeHtml(content.headline)}</p>
+      <p class="pb-sub">${escapeHtml(content.subheadline)}</p>
+      <a class="button" href="#contact">${escapeHtml(content.callToAction)}</a>
+    </div>
+    <div class="pb-hero-img"><img src="${escapeHtml(assets.heroImage)}" alt="${escapeHtml(intake.businessName)}"></div>
+  </section>
+  <section id="about" class="section pb-about">
+    <div class="pb-about-card">
+      <p class="eyebrow">About</p>
+      <p>${escapeHtml(content.about)}</p>
+    </div>
+  </section>
+  <section id="offerings" class="section pb-work">
+    <p class="eyebrow">What I offer</p>
+    <div class="pb-grid">${offeringCards(content, "pb-card")}</div>
+  </section>
+  <section class="section pb-proof">
+    <p class="eyebrow">What clients say</p>
+    <div class="cards">${testimonialBlock(content)}</div>
+  </section>
+  ${contactSection(intake)}
+</main>`;
+
+/* ═══════════════════════════════════════════════════════════════
    RENDERER MAP
 ═══════════════════════════════════════════════════════════════ */
 const renderers: Record<string, TemplateRenderer> = {
@@ -555,7 +1361,31 @@ const renderers: Record<string, TemplateRenderer> = {
   "dark-luxury": darkLuxury,
   "mosaic-visual": mosaicVisual,
   "bold-magazine": boldMagazine,
-  "wellness-light": wellnessLight
+  "wellness-light": wellnessLight,
+  /* restaurant */
+  "restaurant-tableside": restaurantTableside,
+  "restaurant-chalkboard": restaurantChalkboard,
+  "restaurant-open-kitchen": restaurantOpenKitchen,
+  "restaurant-street-food": restaurantStreetFood,
+  /* retail */
+  "retail-editorial-spread": retailEditorialSpread,
+  "retail-market-stall": retailMarketStall,
+  "retail-product-drop": retailProductDrop,
+  "retail-boutique-clean": retailBoutiqueClean,
+  /* services */
+  "services-agency-bold": servicesAgencyBold,
+  "services-local-trust": servicesLocalTrust,
+  "services-corporate-edge": servicesCorporateEdge,
+  "services-freelance-card": servicesFreelanceCard,
+  /* beauty */
+  "beauty-glam-editorial": beautyGlamEditorial,
+  "beauty-salon-chic": beautySalonChic,
+  "beauty-natural-glow": beautyNaturalGlow,
+  "beauty-nail-pop": beautyNailPop,
+  /* portfolio */
+  "portfolio-case-study": portfolioCaseStudy,
+  "portfolio-gallery-flow": portfolioGalleryFlow,
+  "portfolio-personal-brand": portfolioPersonalBrand
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -710,7 +1540,386 @@ const templateCss: Record<string, string> = {
 .wl-card span{color:var(--primary);font-weight:850;margin-top:10px;display:block}
 .wl-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:clamp(20px,4vw,60px);background:#f8f5f0}
 .wl-gallery img{height:280px;border-radius:calc(var(--radius)*1.8);object-fit:cover}
-.wl-quotes blockquote{border-radius:calc(var(--radius)*1.6)}`
+.wl-quotes blockquote{border-radius:calc(var(--radius)*1.6)}`,
+
+  /* ── RESTAURANT EXCLUSIVE ── */
+  "restaurant-tableside": `.ts-header{background:var(--ink)!important;border-bottom-color:rgba(200,188,160,.08)!important}
+.ts-brand{color:var(--paper)!important}
+.ts-header nav,.ts-header nav a{color:rgba(200,188,160,.45)!important}
+.ts-reserve{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 20px;border:1px solid var(--accent);border-radius:min(var(--radius),5px);color:var(--accent);text-decoration:none;font-weight:900;font-size:.85rem;letter-spacing:.05em;white-space:nowrap}
+.ts-hero{display:grid;place-items:center;text-align:center;min-height:86vh;padding:clamp(80px,12vw,160px) clamp(20px,5vw,72px);background:var(--ink);color:var(--paper)}
+.ts-eyebrow{color:rgba(200,188,160,.38)!important;letter-spacing:.12em}
+.ts-h1{color:var(--paper);max-width:none;margin-bottom:18px}
+.ts-sub{color:rgba(200,188,160,.6);font-size:1.18rem;max-width:580px;margin:0 auto 30px}
+.ts-hero-cta{font-size:.95rem}
+.ts-photo{height:54vh;overflow:hidden}
+.ts-photo img{height:100%;object-position:center}
+.ts-story{max-width:680px;margin:0 auto;text-align:center;font-size:1.18rem;color:var(--muted)}
+.ts-rule{width:36px;height:1px;background:var(--accent);margin:26px auto}
+.ts-menu{background:var(--surface)}
+.ts-menu h2{margin-bottom:30px}
+.ts-menu-list{border-top:1px solid rgba(21,27,24,.1)}
+.ts-row{display:flex;justify-content:space-between;align-items:start;gap:16px;padding:16px 0;border-bottom:1px solid rgba(21,27,24,.08)}
+.ts-row-left{display:flex;flex-direction:column;gap:3px}
+.ts-dish{font-weight:850}
+.ts-desc{color:var(--muted);font-size:.86rem}
+.ts-price{color:var(--accent);font-weight:900;white-space:nowrap;flex-shrink:0;font-size:.95rem}`,
+
+  "restaurant-chalkboard": `.cb-hero{display:grid;grid-template-columns:1fr 1fr;min-height:68vh}
+.cb-hero-img{overflow:hidden}
+.cb-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.cb-hero-copy h1{max-width:none}
+.cb-hero-copy p{color:var(--muted);font-size:1.08rem;margin:10px 0 24px}
+.cb-about{max-width:720px;font-size:1.12rem;color:var(--muted)}
+.cb-board{padding:clamp(54px,8vw,108px) clamp(20px,5vw,72px);background:var(--primary)}
+.cb-board-eye{color:color-mix(in srgb,var(--accent) 82%,white)!important}
+.cb-board-title{color:white;margin-bottom:36px}
+.cb-board-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+.cb-item{padding:22px;border:1px solid rgba(255,255,255,.14);border-radius:var(--radius)}
+.cb-item h3{color:white;font-size:1rem;margin-bottom:6px}
+.cb-item p{color:rgba(255,255,255,.58);font-size:.88rem;margin:0}
+.cb-price{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.cb-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:5px;background:var(--surface)}
+.cb-gallery img{height:230px;border-radius:var(--radius)}`,
+
+  "restaurant-open-kitchen": `.ok-header{background:white!important}
+.ok-hero{display:grid;grid-template-columns:1fr 1fr;min-height:70vh;border-bottom:3px solid var(--primary)}
+.ok-headline{display:grid;align-content:end;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.ok-headline h1{max-width:none}
+.ok-hero-img{overflow:hidden}
+.ok-strip{display:grid;grid-template-columns:repeat(5,1fr);height:220px;gap:3px;background:var(--ink)}
+.ok-strip img{height:100%;border-radius:0}
+.ok-about{display:grid;grid-template-columns:.65fr 1.35fr;gap:44px;align-items:start}
+.ok-about p{font-size:1.14rem;color:var(--muted)}
+.ok-menu{background:var(--surface)}`,
+
+  "restaurant-street-food": `.sf-header{background:var(--accent)!important;border-bottom:none!important}
+.sf-brand,.sf-header nav a,.sf-header nav{color:white!important}
+.sf-hero{display:grid;grid-template-columns:1.15fr .85fr;min-height:74vh;background:var(--accent)}
+.sf-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.sf-eye{color:rgba(255,255,255,.62)!important}
+.sf-h1{color:white;font-size:clamp(3rem,8vw,8rem);line-height:.88;max-width:none}
+.sf-copy>p{color:rgba(255,255,255,.78);font-size:1.08rem;margin:12px 0 26px}
+.sf-cta{background:var(--ink)!important}
+.sf-hero-img{overflow:hidden;margin:clamp(16px,3vw,36px);border-radius:var(--radius)}
+.sf-marquee{display:flex;gap:24px;padding:13px clamp(20px,5vw,72px);background:var(--ink);color:white;font-weight:900;font-size:.84rem;overflow:hidden;white-space:nowrap}
+.sf-menu{background:var(--surface)}
+.sf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:0;margin-top:24px}
+.sf-card{padding:28px 24px 24px;border:1px solid rgba(21,27,24,.1);position:relative;padding-top:54px}
+.sf-num{position:absolute;top:18px;left:20px;color:var(--accent);font-size:1.5rem;font-weight:950;line-height:1}
+.sf-card h3{font-size:1rem;margin-bottom:5px}
+.sf-card p{color:var(--muted);font-size:.88rem;margin:0}
+.sf-price{color:var(--primary);font-weight:900;display:block;margin-top:8px}
+.sf-about{background:var(--primary);color:white}
+.sf-about h2{color:white}
+.sf-about p{color:rgba(255,255,255,.72);font-size:1.1rem}
+.sf-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:4px;background:var(--ink)}
+.sf-gallery img{height:220px}`,
+
+  /* ── RETAIL EXCLUSIVE ── */
+  "retail-editorial-spread": `.es-header{background:white!important;border-bottom:1px solid rgba(21,27,24,.06)!important}
+.es-hero{position:relative;min-height:90vh;display:grid;overflow:hidden}
+.es-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.es-hero-copy{position:relative;display:grid;align-content:end;padding:clamp(60px,9vw,130px);background:linear-gradient(to top,rgba(10,12,11,.82) 0%,rgba(10,12,11,.1) 55%)}
+.es-hero-copy h1{color:white;max-width:none}
+.es-hero-copy>p{color:rgba(255,255,255,.7);font-size:1.1rem;margin:10px 0 24px;max-width:560px}
+.es-eye{color:rgba(255,255,255,.45)!important}
+.es-spread{display:grid;grid-template-columns:1fr 1fr;min-height:60vh}
+.es-spread-flip{direction:rtl}.es-spread-flip>*{direction:ltr}
+.es-spread-img{overflow:hidden}
+.es-spread-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.es-spread-copy h2{font-size:clamp(1.8rem,3.5vw,3.2rem);line-height:1}
+.es-spread-copy p{color:var(--muted);font-size:1.05rem;margin:10px 0}
+.es-price{color:var(--accent);font-size:1.1rem;font-weight:900}
+.es-about{max-width:820px}
+.es-about p{color:var(--muted);font-size:1.12rem}
+.es-gallery{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;padding:5px;background:var(--ink)}
+.es-gallery img{grid-column:span 2;height:280px}
+.es-gallery img:first-child{grid-column:span 3;height:400px}`,
+
+  "retail-market-stall": `.ms-header{background:var(--surface)!important}
+.ms-hero{display:grid;grid-template-columns:1fr 1fr;min-height:68vh}
+.ms-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.ms-hero-copy h1{max-width:none}
+.ms-hero-copy>p{color:var(--muted);font-size:1.08rem;margin:10px 0 24px}
+.ms-hero-img{overflow:hidden}
+.ms-story{max-width:760px;background:white}
+.ms-story h2{font-size:clamp(1.8rem,3vw,3rem)}
+.ms-story p{color:var(--muted);font-size:1.12rem;margin-top:10px}
+.ms-products{background:var(--surface)}
+.ms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:24px}
+.ms-card{padding:26px;border-radius:calc(var(--radius)*1.4);background:white;border:1px solid rgba(21,27,24,.08)}
+.ms-card h3{font-size:1.02rem;margin-bottom:6px}
+.ms-card p{color:var(--muted);font-size:.9rem;margin:0}
+.ms-card span{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.ms-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:6px;background:var(--surface)}
+.ms-gallery img{height:240px;border-radius:var(--radius)}`,
+
+  "retail-product-drop": `.pd-main{background:var(--ink);color:var(--paper)}
+.pd-header{background:rgba(21,27,24,.97)!important;border-bottom:1px solid rgba(255,255,255,.05)!important}
+.pd-brand,.pd-header nav a,.pd-header nav{color:rgba(230,230,220,.7)!important}
+.pd-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;border:1px solid var(--accent);border-radius:min(var(--radius),4px);color:var(--accent);text-decoration:none;font-weight:900;font-size:.84rem;letter-spacing:.06em;background:transparent;white-space:nowrap}
+.pd-hero{display:grid;grid-template-columns:1.1fr .9fr;min-height:80vh}
+.pd-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--ink)}
+.pd-eye{color:rgba(230,230,220,.32)!important;letter-spacing:.1em}
+.pd-h1{color:var(--paper);max-width:none;font-size:clamp(3rem,7vw,7.5rem);line-height:.86}
+.pd-sub{color:rgba(230,230,220,.5);font-size:1.08rem;margin:14px 0 28px}
+.pd-hero-cta{align-self:start}
+.pd-hero-img{overflow:hidden}
+.pd-drops{background:color-mix(in srgb,var(--ink) 94%,white)}
+.pd-eye{color:rgba(230,230,220,.32)!important}
+.pd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:rgba(255,255,255,.06);margin-top:24px}
+.pd-item{padding:28px;background:color-mix(in srgb,var(--ink) 94%,white)}
+.pd-item-name{color:var(--paper);font-size:1.05rem;margin-bottom:6px}
+.pd-item-desc{color:rgba(230,230,220,.45);font-size:.88rem;margin:0}
+.pd-item-price{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.pd-about{max-width:760px}
+.pd-about-text{font-size:1.15rem;color:rgba(230,230,220,.55)}
+.pd-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;background:rgba(255,255,255,.04)}
+.pd-gallery img{height:260px}
+.pd-main .contact-band{background:color-mix(in srgb,var(--primary) 85%,#050403)}`,
+
+  "retail-boutique-clean": `.bc-header{background:white!important;border-bottom:1px solid rgba(21,27,24,.05)!important}
+.bc-brand{font-weight:400;letter-spacing:.14em;text-transform:uppercase;font-size:.82rem}
+.bc-link{color:var(--muted);text-decoration:underline;font-size:.88rem}
+.bc-hero{height:88vh;overflow:hidden}
+.bc-hero img{height:100%;object-position:center}
+.bc-intro{max-width:680px;margin:0 auto;text-align:center}
+.bc-intro-inner{max-width:560px;margin:0 auto}
+.bc-intro h2{font-size:clamp(2rem,4vw,4rem);margin-bottom:14px}
+.bc-intro p{color:var(--muted);font-size:1.1rem}
+.bc-catalog{display:grid;gap:0}
+.bc-item{display:grid;grid-template-columns:1fr 1fr;min-height:52vh}
+.bc-item-alt{direction:rtl}.bc-item-alt>*{direction:ltr}
+.bc-item-img{overflow:hidden}
+.bc-item-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.bc-item-copy h3{font-family:var(--display-font);font-size:clamp(1.6rem,2.8vw,2.6rem);margin-bottom:10px}
+.bc-item-copy p{color:var(--muted);font-size:1.02rem;margin-bottom:14px}
+.bc-price{color:var(--accent);font-weight:900;font-size:1.05rem}
+.bc-quotes{max-width:820px;margin:0 auto}`,
+
+  /* ── SERVICES EXCLUSIVE ── */
+  "services-agency-bold": `.ab-header{background:var(--paper)!important}
+.ab-brand{font-weight:950;letter-spacing:-.02em}
+.ab-hero{display:grid;grid-template-columns:1fr 1fr;align-items:end;min-height:72vh;background:var(--primary)}
+.ab-hero-inner{display:grid;align-content:end;padding:clamp(48px,7vw,96px);padding-right:0}
+.ab-eye{color:rgba(255,255,255,.45)!important}
+.ab-hero h1{color:white;max-width:none;font-size:clamp(3rem,6vw,6.5rem)}
+.ab-sub{grid-column:2;display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--accent);color:white;font-size:1.18rem;line-height:1.55;margin:0}
+.ab-services{display:grid;gap:0}
+.ab-row{display:grid;grid-template-columns:80px 1fr auto;align-items:center;gap:24px;padding:clamp(26px,4vw,48px) clamp(20px,5vw,72px);border-bottom:1px solid rgba(21,27,24,.1);background:white}
+.ab-alt{background:var(--surface)}
+.ab-num{font-family:var(--display-font);font-size:clamp(2.4rem,4vw,4rem);color:color-mix(in srgb,var(--primary) 20%,transparent);font-weight:950;line-height:1}
+.ab-row-copy h2{font-size:clamp(1.3rem,2.2vw,2rem);margin-bottom:6px}
+.ab-row-copy p{color:var(--muted);font-size:.94rem;margin:0}
+.ab-price{color:var(--accent);font-weight:900;white-space:nowrap}
+.ab-about{display:grid;grid-template-columns:1fr 1fr;min-height:52vh}
+.ab-about-img{overflow:hidden}
+.ab-about-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--ink)}
+.ab-about-copy p,.ab-about-copy h2{color:white}
+.ab-about-copy>p:first-child{color:rgba(255,255,255,.45)}
+.ab-about-copy>p:last-child{color:rgba(255,255,255,.68);font-size:1.08rem}`,
+
+  "services-local-trust": `.lt-hero{display:grid;grid-template-columns:1.1fr .9fr;min-height:72vh;background:var(--surface)}
+.lt-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.lt-hero-copy h1{max-width:none}
+.lt-hero-copy>p{color:var(--muted);font-size:1.05rem;margin:10px 0 18px}
+.lt-checks{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+.lt-check{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--primary);font-size:.94rem}
+.lt-hero-img{overflow:hidden}
+.lt-services{background:var(--surface)}
+.lt-about{max-width:760px;font-size:1.12rem;color:var(--muted)}`,
+
+  "services-corporate-edge": `.ce-header{background:var(--primary)!important;border-bottom:none!important}
+.ce-brand{color:white!important}
+.ce-header nav,.ce-header nav a{color:rgba(255,255,255,.55)!important}
+.ce-eye{color:rgba(255,255,255,.45)!important}
+.ce-hero{display:grid;grid-template-columns:1.05fr .95fr;min-height:70vh;background:var(--primary);color:white}
+.ce-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.ce-hero-copy h1{color:white;max-width:none}
+.ce-hero-copy>p{color:rgba(255,255,255,.65);font-size:1.08rem;margin:10px 0 24px}
+.ce-hero-img{overflow:hidden;margin:clamp(16px,3vw,36px);border-radius:var(--radius)}
+.ce-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:0;background:var(--accent)}
+.ce-stat{display:flex;flex-direction:column;gap:4px;padding:22px clamp(20px,5vw,72px);border-right:1px solid rgba(255,255,255,.15)}
+.ce-stat-n{font-family:var(--display-font);font-size:2rem;font-weight:950;color:white;line-height:1}
+.ce-stat>span:last-child{color:rgba(255,255,255,.7);font-size:.85rem;font-weight:700}
+.ce-services{background:var(--surface)}
+.ce-about{background:white}
+.ce-about-grid{display:grid;grid-template-columns:.7fr 1.3fr;gap:36px;margin-top:12px}
+.ce-about-grid p{color:var(--muted);font-size:1.08rem}
+.ce-process{background:var(--ink)}
+.ce-process>.eyebrow{color:rgba(255,255,255,.45)!important;padding:0 clamp(20px,5vw,72px)}
+.ce-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:0;padding:clamp(20px,4vw,60px) clamp(20px,5vw,72px)}
+.ce-step{padding:24px 20px;border-left:1px solid rgba(255,255,255,.1)}
+.ce-step-n{display:block;font-family:var(--display-font);font-size:3rem;color:var(--accent);line-height:1;margin-bottom:10px}
+.ce-step h3{color:white;font-size:1rem;margin:0}`,
+
+  "services-freelance-card": `.fc-main{background:var(--paper)}
+.fc-header{background:var(--paper)!important}
+.fc-hero{display:grid;grid-template-columns:1fr 1fr;min-height:72vh;align-items:center;background:var(--surface)}
+.fc-hero-copy{padding:clamp(48px,7vw,96px)}
+.fc-eye{color:var(--muted)!important}
+.fc-hero-copy h1{max-width:none}
+.fc-sub{color:var(--muted);font-size:1.05rem;margin:10px 0 18px}
+.fc-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.fc-tag{padding:5px 12px;border:1px solid var(--primary);border-radius:999px;color:var(--primary);font-size:.8rem;font-weight:850}
+.fc-hero-img{overflow:hidden;margin:clamp(16px,3vw,40px);border-radius:calc(var(--radius)*1.5)}
+.fc-about{background:white}
+.fc-about-card{max-width:680px;padding:32px;border:1px solid rgba(21,27,24,.09);border-radius:var(--radius);background:var(--surface)}
+.fc-about-card p{color:var(--muted);font-size:1.08rem;margin-top:10px}
+.fc-services{background:var(--surface)}
+.fc-list{display:grid;gap:0;margin-top:20px;border-top:1px solid rgba(21,27,24,.1)}
+.fc-service{display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto;gap:4px 16px;align-items:start;padding:18px 0;border-bottom:1px solid rgba(21,27,24,.08)}
+.fc-service h3{font-size:1rem;grid-column:1}
+.fc-service p{color:var(--muted);font-size:.88rem;margin:0;grid-column:1}
+.fc-price{color:var(--accent);font-weight:900;grid-column:2;grid-row:1;white-space:nowrap}`,
+
+  /* ── BEAUTY EXCLUSIVE ── */
+  "beauty-glam-editorial": `.bge-main{background:#0c0a09;color:#ede5da}
+.bge-header{background:rgba(12,10,9,.96)!important;border-bottom:1px solid rgba(237,229,218,.06)!important}
+.bge-brand{color:#ede5da!important}
+.bge-header nav,.bge-header nav a{color:rgba(237,229,218,.38)!important}
+.bge-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 22px;border:1px solid var(--accent);border-radius:min(var(--radius),6px);color:var(--accent);text-decoration:none;font-weight:900;font-size:.88rem;white-space:nowrap;background:transparent}
+.bge-hero{display:grid;grid-template-columns:1fr 1fr;min-height:86vh}
+.bge-hero-img{overflow:hidden}
+.bge-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:#0c0a09}
+.bge-eye{color:rgba(237,229,218,.32)!important;letter-spacing:.1em}
+.bge-h1{color:#ede5da;max-width:none;font-size:clamp(2.8rem,5vw,5.5rem)}
+.bge-sub{color:rgba(237,229,218,.48);font-size:1.08rem;margin:12px 0 26px}
+.bge-quote-band{padding:clamp(40px,6vw,80px) clamp(20px,5vw,72px);background:var(--accent)}
+.bge-quote{font-family:var(--display-font);font-size:clamp(1.4rem,3vw,2.6rem);color:white;margin:0;font-style:italic;line-height:1.28;max-width:900px}
+.bge-services{background:#0f0d0b}
+.bge-eye{color:rgba(237,229,218,.32)!important}
+.bge-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:22px}
+.bge-card{padding:26px;border:1px solid rgba(237,229,218,.07);border-radius:var(--radius);background:rgba(237,229,218,.02)}
+.bge-card h3{color:#ede5da;margin-bottom:6px}
+.bge-card p{color:rgba(237,229,218,.42);font-size:.88rem;margin:0}
+.bge-card span{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.bge-gallery{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px;background:#050302}
+.bge-gallery img{height:350px}
+.bge-about{background:#0c0a09}
+.bge-about-h2{color:#ede5da;font-size:clamp(2rem,3.5vw,3.5rem)}
+.bge-about-p{color:rgba(237,229,218,.5);font-size:1.12rem;max-width:720px}
+.bge-main .contact-band{background:color-mix(in srgb,var(--primary) 75%,#050302)}`,
+
+  "beauty-salon-chic": `.bsc-hero{display:grid;grid-template-columns:1fr 1fr;min-height:76vh}
+.bsc-hero-img{overflow:hidden}
+.bsc-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.bsc-hero-copy h1{max-width:none}
+.bsc-hero-copy>p{color:var(--muted);font-size:1.05rem;margin:10px 0 22px}
+.bsc-services{background:white}
+.bsc-services h2{margin-bottom:24px}
+.bsc-cards{display:flex;flex-direction:column;gap:0;margin-top:24px}
+.bsc-card{display:grid;grid-template-columns:1fr auto;align-items:center;gap:16px;padding:20px 24px;border-bottom:1px solid rgba(21,27,24,.09);background:white}
+.bsc-card h3{font-size:1rem;margin-bottom:4px}
+.bsc-card p{color:var(--muted);font-size:.88rem;margin:0}
+.bsc-price{color:var(--primary);font-weight:900;white-space:nowrap}
+.bsc-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:5px;background:var(--primary)}
+.bsc-gallery img{height:250px}
+.bsc-about{display:grid;grid-template-columns:1fr 1fr;gap:36px;background:var(--surface)}
+.bsc-about-copy p{color:var(--muted);font-size:1.05rem}`,
+
+  "beauty-natural-glow": `.ng-main{background:color-mix(in srgb,var(--paper) 92%,white)}
+.ng-header{background:color-mix(in srgb,var(--paper) 92%,white)!important}
+.ng-btn{border-radius:999px!important;background:var(--primary)!important}
+.ng-hero{display:grid;grid-template-columns:1fr 1fr;min-height:72vh;gap:0}
+.ng-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.ng-hero-copy h1{max-width:none}
+.ng-hero-copy>p{color:var(--muted);font-size:1.05rem;margin:10px 0 24px}
+.ng-hero-img{overflow:hidden;border-radius:0 clamp(24px,5vw,72px) clamp(24px,5vw,72px) 0}
+.ng-about{max-width:700px;font-size:1.14rem;color:var(--muted);background:white;border-radius:var(--radius)}
+.ng-treatments{background:white}
+.ng-treatments h2{margin-bottom:22px}
+.ng-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:20px}
+.ng-card{padding:26px;border:1px solid rgba(21,27,24,.07);border-radius:calc(var(--radius)*1.8);background:color-mix(in srgb,var(--paper) 92%,white)}
+.ng-card h3{margin-bottom:6px}
+.ng-card p{color:var(--muted);font-size:.9rem;margin:0}
+.ng-price{color:var(--primary);font-weight:900;display:block;margin-top:8px}
+.ng-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:clamp(20px,4vw,56px);background:white}
+.ng-gallery img{height:260px;border-radius:calc(var(--radius)*2);object-fit:cover}
+.ng-quotes{background:color-mix(in srgb,var(--paper) 92%,white)}
+.ng-quotes blockquote{border-radius:calc(var(--radius)*1.8)}`,
+
+  "beauty-nail-pop": `.np-header{background:var(--accent)!important;border-bottom:none!important}
+.np-brand,.np-header nav a,.np-header nav{color:white!important}
+.np-btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 20px;border-radius:999px;background:white;color:var(--accent);text-decoration:none;font-weight:900;font-size:.88rem;white-space:nowrap}
+.np-hero{display:grid;grid-template-columns:1fr 1fr;min-height:72vh;background:var(--accent)}
+.np-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.np-eye{color:rgba(255,255,255,.55)!important}
+.np-h1{color:white;max-width:none;font-size:clamp(2.8rem,6vw,6rem)}
+.np-hero-copy>p{color:rgba(255,255,255,.75);font-size:1.05rem;margin:10px 0 24px}
+.np-hero-btn{margin-top:0}
+.np-mosaic{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;padding:clamp(16px,3vw,36px);background:color-mix(in srgb,var(--accent) 80%,black)}
+.np-tile{border-radius:calc(var(--radius)*1.4)}
+.np-services{background:white}
+.np-pills{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:22px}
+.np-pill{padding:24px;border-radius:calc(var(--radius)*2);background:color-mix(in srgb,var(--accent) 8%,white);border:1.5px solid color-mix(in srgb,var(--accent) 22%,white)}
+.np-pill h3{font-size:1rem;margin-bottom:5px}
+.np-pill p{color:var(--muted);font-size:.88rem;margin:0}
+.np-pill-price{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.np-about{max-width:720px;font-size:1.1rem;color:var(--muted)}`,
+
+  /* ── PORTFOLIO EXCLUSIVE ── */
+  "portfolio-case-study": `.cs-header{background:white!important;border-bottom:1px solid rgba(21,27,24,.07)!important}
+.cs-hero{background:var(--surface);max-width:none}
+.cs-hero h1{max-width:none;font-size:clamp(3rem,7vw,7rem)}
+.cs-sub{color:var(--muted);font-size:1.1rem;max-width:620px;margin:10px 0 20px}
+.cs-skills{display:flex;flex-wrap:wrap;gap:8px}
+.cs-skill{padding:5px 14px;border:1px solid var(--primary);border-radius:999px;color:var(--primary);font-size:.8rem;font-weight:850}
+.cs-hero-img{height:54vh;overflow:hidden}
+.cs-hero-img img{height:100%;object-position:center}
+.cs-about{background:white}
+.cs-about-grid{display:grid;grid-template-columns:.7fr 1.3fr;gap:36px;margin-top:12px}
+.cs-about-grid p{color:var(--muted);font-size:1.08rem}
+.cs-work{display:grid;gap:0}
+.cs-case{display:grid;grid-template-columns:48px 1fr 1fr;min-height:48vh;border-top:1px solid rgba(21,27,24,.1)}
+.cs-case:nth-child(even){direction:rtl}.cs-case:nth-child(even)>*{direction:ltr}
+.cs-case-num{display:grid;place-items:start;padding:20px 0 0 20px;font-family:var(--display-font);font-size:1.4rem;color:var(--accent);font-weight:950}
+.cs-case-img{overflow:hidden}
+.cs-case-copy{display:grid;align-content:center;padding:clamp(40px,6vw,80px);background:var(--surface)}
+.cs-case-copy h2{font-size:clamp(1.6rem,2.8vw,2.6rem);margin-bottom:10px}
+.cs-case-copy p{color:var(--muted);font-size:.98rem}
+.cs-tag{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:999px;background:var(--primary);color:white;font-size:.78rem;font-weight:850}`,
+
+  "portfolio-gallery-flow": `.gf-header{background:white!important;border-bottom:1px solid rgba(21,27,24,.05)!important}
+.gf-brand{font-weight:400;letter-spacing:.1em;text-transform:uppercase;font-size:.82rem}
+.gf-btn{background:var(--ink)!important}
+.gf-hero{display:grid;grid-template-columns:.7fr 1.3fr;min-height:66vh}
+.gf-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px);background:var(--surface)}
+.gf-hero-copy h1{max-width:none;font-size:clamp(2.6rem,5.5vw,5.8rem)}
+.gf-hero-copy>p{color:var(--muted);font-size:1.05rem;margin:10px 0 24px}
+.gf-hero-img{overflow:hidden}
+.gf-masonry{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:240px;gap:5px;padding:5px;background:var(--ink)}
+.gf-img{border-radius:0}
+.gf-img-0{grid-row:span 2}
+.gf-about{max-width:720px;font-size:1.12rem;color:var(--muted)}
+.gf-services{background:var(--surface)}
+.gf-list{display:grid;gap:0;margin-top:18px;border-top:1px solid rgba(21,27,24,.1)}
+.gf-item{display:flex;justify-content:space-between;align-items:start;gap:20px;padding:16px 0;border-bottom:1px solid rgba(21,27,24,.08)}
+.gf-item h3{font-size:.98rem;margin-bottom:3px}
+.gf-item p{color:var(--muted);font-size:.86rem;margin:0}
+.gf-price{flex-shrink:0;color:var(--primary);font-weight:900;white-space:nowrap}`,
+
+  "portfolio-personal-brand": `.pb-header{background:var(--primary)!important;border-bottom:none!important}
+.pb-brand{color:white!important}
+.pb-header nav,.pb-header nav a{color:rgba(255,255,255,.5)!important}
+.pb-eye{color:rgba(255,255,255,.4)!important}
+.pb-hero{display:grid;grid-template-columns:1.1fr .9fr;min-height:82vh;background:var(--primary);color:white}
+.pb-hero-copy{display:grid;align-content:center;padding:clamp(48px,7vw,96px)}
+.pb-name{color:white;max-width:none;font-size:clamp(3rem,7vw,7.5rem);line-height:.88;margin-bottom:8px}
+.pb-tagline{color:color-mix(in srgb,var(--accent) 90%,white);font-size:clamp(1.2rem,2vw,1.8rem);font-weight:700;margin-bottom:8px}
+.pb-sub{color:rgba(255,255,255,.6);font-size:1.05rem;margin:0 0 24px}
+.pb-hero-img{overflow:hidden;margin:clamp(16px,3vw,40px);border-radius:var(--radius)}
+.pb-about{background:var(--surface)}
+.pb-about-card{max-width:680px;padding:34px;border:1px solid rgba(21,27,24,.09);border-radius:var(--radius);background:white}
+.pb-about-card p{color:var(--muted);font-size:1.08rem;margin-top:10px}
+.pb-work{background:white}
+.pb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin-top:22px}
+.pb-card{padding:24px;border:1px solid rgba(21,27,24,.09);border-radius:var(--radius)}
+.pb-card h3{font-size:1rem;margin-bottom:5px}
+.pb-card p{color:var(--muted);font-size:.88rem;margin:0}
+.pb-card span{color:var(--accent);font-weight:900;display:block;margin-top:8px}
+.pb-proof{background:var(--surface)}`
 };
 
 const responsiveCss = `@media(max-width:900px){
@@ -722,11 +1931,63 @@ const responsiveCss = `@media(max-width:900px){
   .mv-mosaic{grid-template-rows:200px 200px}
   .mv-img-0{grid-row:auto}
   .dl-testimonials{grid-template-columns:1fr}
+  /* restaurant exclusive */
+  .cb-hero,.ok-hero,.sf-hero{grid-template-columns:1fr}
+  .ok-hero{min-height:auto}
+  .ok-strip{grid-template-columns:repeat(3,1fr);height:160px}
+  .ok-about{grid-template-columns:1fr}
+  .sf-hero{background:var(--accent)}
+  .sf-hero-img{display:none}
+  /* retail exclusive */
+  .es-spread,.es-spread-flip,.ms-hero,.bc-item,.bc-item-alt,.pd-hero{grid-template-columns:1fr}
+  .es-spread-flip{direction:ltr}
+  .bc-item-alt{direction:ltr}
+  .bc-hero{height:50vh}
+  .es-hero{min-height:60vh}
+  .es-gallery{grid-template-columns:repeat(3,1fr)}
+  .es-gallery img,.es-gallery img:first-child{grid-column:auto;height:200px}
+  /* services exclusive */
+  .ab-hero,.ab-about,.lt-hero,.ce-hero,.fc-hero{grid-template-columns:1fr}
+  .ab-hero{background:var(--primary)}
+  .ab-sub{grid-column:1;background:var(--accent)}
+  .ab-row{grid-template-columns:48px 1fr}
+  .ab-price{grid-column:2}
+  .ce-stats{grid-template-columns:1fr 1fr}
+  .ce-about-grid{grid-template-columns:1fr}
+  .ce-steps{grid-template-columns:1fr 1fr}
+  .fc-hero-img{display:none}
+  /* beauty exclusive */
+  .bge-hero,.bsc-hero,.ng-hero,.np-hero{grid-template-columns:1fr}
+  .bsc-about{grid-template-columns:1fr}
+  /* portfolio exclusive */
+  .cs-case{grid-template-columns:36px 1fr}
+  .cs-case-img{display:none}
+  .cs-case:nth-child(even){direction:ltr}
+  .cs-about-grid{grid-template-columns:1fr}
+  .gf-hero,.pb-hero{grid-template-columns:1fr}
+  .gf-masonry{grid-template-columns:1fr 1fr}
+  .gf-img-0{grid-row:auto}
 }
 @media(max-width:620px){
   .masonry,.gallery-strip,.showcase-grid,.li-gallery,.mt-gallery,.dl-gallery,.bm-gallery,.wl-gallery{grid-template-columns:1fr}
   h1{font-size:clamp(2.55rem,16vw,4.8rem)}
   .mt-hero h1{font-size:clamp(3rem,16vw,7rem)}
+  /* restaurant */
+  .cb-board-grid,.sf-grid{grid-template-columns:1fr}
+  .cb-gallery,.ok-strip,.sf-gallery{grid-template-columns:1fr 1fr}
+  /* retail */
+  .es-gallery,.ms-gallery,.pd-gallery,.bc-catalog{grid-template-columns:1fr}
+  .ms-grid,.pd-grid{grid-template-columns:1fr}
+  /* services */
+  .ce-stats,.ce-steps{grid-template-columns:1fr}
+  /* beauty */
+  .bge-gallery,.bsc-gallery,.ng-gallery,.np-pills{grid-template-columns:1fr 1fr}
+  .bge-cards,.ng-cards{grid-template-columns:1fr}
+  /* portfolio */
+  .gf-masonry,.cs-work{grid-template-columns:1fr}
+  .cs-case{grid-template-columns:1fr}
+  .cs-case-num{display:none}
+  .pb-grid{grid-template-columns:1fr}
 }`;
 
 export const renderWebsite = (

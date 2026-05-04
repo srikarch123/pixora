@@ -1,16 +1,18 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import cors from "cors";
-import dotenv from "dotenv";
+import "dotenv/config";
 import express from "express";
 import { z } from "zod";
 import { runGenerationGraph } from "./ai/generationGraph.js";
 import {
   createSession,
   createUser,
+  deleteGeneration,
   deleteSession,
   findUserByEmail,
   getGeneration,
   getUserBySessionTokenHash,
+  getUsedTemplateIds,
   initializeDatabase,
   listGenerations,
   saveGeneration
@@ -18,7 +20,6 @@ import {
 import { templates } from "./templates/templates.js";
 import type { BusinessIntake, GeneratedSite, UserAccount } from "./types.js";
 
-dotenv.config();
 initializeDatabase();
 
 const app = express();
@@ -156,7 +157,7 @@ app.get("/api/generations", requireUser, (_req, res) => {
 });
 
 app.get("/api/generations/:id", requireUser, (request, response) => {
-  const site = getGeneration(response.locals.user.id, request.params.id);
+  const site = getGeneration(response.locals.user.id, String(request.params.id));
   if (!site) {
     response.status(404).json({ message: "Generation not found." });
     return;
@@ -168,13 +169,23 @@ app.get("/api/generations/:id", requireUser, (request, response) => {
 app.post("/api/generate", requireUser, async (request, response, next) => {
   try {
     const intake = intakeSchema.parse(request.body);
-    console.log(`Generating site for "${intake.businessName}" (${intake.businessType})`);
-    const site = await runGenerationGraph(intake);
+    const usedTemplateIds = getUsedTemplateIds((response.locals.user as UserAccount).id, intake.businessType);
+    console.log(`Generating site for "${intake.businessName}" (${intake.businessType}), avoiding [${usedTemplateIds.join(", ") || "none"}]`);
+    const site = await runGenerationGraph(intake, usedTemplateIds);
     console.log(`Generated ${site.templateId} site ${site.id}`);
     response.json(site);
   } catch (error) {
     next(error);
   }
+});
+
+app.delete("/api/generations/:id", requireUser, (request, response) => {
+  const deleted = deleteGeneration((response.locals.user as UserAccount).id, String(request.params.id));
+  if (!deleted) {
+    response.status(404).json({ message: "Generation not found." });
+    return;
+  }
+  response.status(204).send();
 });
 
 // Explicit save — called only when user clicks "Save to library"

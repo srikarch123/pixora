@@ -31,6 +31,8 @@ const getErrorStatus = (error: unknown) =>
 
 const getErrorMessage = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
+const openaiTimeoutMs = Number(process.env.OPENAI_TIMEOUT_MS ?? 15_000);
+
 export const generateWebsiteContent = async (
   intake: BusinessIntake,
   context: RetrievedContext[]
@@ -51,7 +53,7 @@ export const generateWebsiteContent = async (
     };
   }
 
-  const openai = new OpenAI({ apiKey });
+  const openai = new OpenAI({ apiKey, maxRetries: 1, timeout: openaiTimeoutMs });
   const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
 
   const prompt = `Create conversion-focused website copy for a small business.
@@ -73,6 +75,7 @@ Rules:
 - Each testimonial must have: quote, author.`;
 
   try {
+    console.log(`Requesting website copy from OpenAI (${model}, timeout ${openaiTimeoutMs}ms)`);
     const response = await openai.chat.completions.create({
       model,
       messages: [
@@ -84,9 +87,11 @@ Rules:
       ],
       response_format: { type: "json_object" }
     });
+    console.log("Received website copy from OpenAI");
 
     const text = response.choices[0]?.message.content;
     if (!text) {
+      console.warn("OpenAI returned empty content; using local fallback.");
       return {
         content: fallbackContent(intake),
         source: { provider: "local-fallback", model: "template", fallback: true, message: "Content generated from template." }
@@ -101,9 +106,8 @@ Rules:
     const status = getErrorStatus(error);
     if (status === 429) {
       retryAfter = Date.now() + 60_000;
-    } else {
-      console.error("Content generation error:", getErrorMessage(error));
     }
+    console.error("Content generation error; using local fallback:", getErrorMessage(error));
     return {
       content: fallbackContent(intake),
       source: { provider: "local-fallback", model: "template", fallback: true, message: "Content generated from template." }

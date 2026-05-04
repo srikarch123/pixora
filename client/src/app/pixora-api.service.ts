@@ -42,4 +42,8 @@ export class PixoraApiService {
   getGeneration(id: string) {
     return this.http.get<GeneratedSite>(`/api/generations/${id}`, { headers: this.authHeaders });
   }
+
+  deleteGeneration(id: string) {
+    return this.http.delete<void>(`/api/generations/${id}`, { headers: this.authHeaders });
+  }
 }

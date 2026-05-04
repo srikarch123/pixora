@@ -547,6 +547,7 @@ h4 {
 }
 
 .site-card {
+  position: relative;
   display: grid;
   grid-template-rows: 6px 1fr;
   border: 1px solid var(--c-border);
@@ -562,6 +563,33 @@ h4 {
   border-color: var(--c-border-2);
   transform: translateY(-2px);
   box-shadow: var(--shadow);
+}
+
+.btn-delete-card {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--c-text-3);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.site-card:hover .btn-delete-card {
+  opacity: 1;
+}
+
+.btn-delete-card:hover {
+  background: var(--c-danger-dim);
+  border-color: rgba(248, 113, 113, 0.22);
+  color: var(--c-danger);
 }
 
 .site-card-stripe {
@@ -1062,94 +1090,6 @@ textarea {
   color: var(--c-text-2);
 }
 
-/* File viewer */
-.file-viewer {
-  border-top: 1px solid var(--c-border);
-  flex-shrink: 0;
-  max-height: 40vh;
-  overflow-y: auto;
-}
-
-.file-tabs {
-  display: flex;
-  gap: 6px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--c-border);
-  overflow-x: auto;
-  flex-shrink: 0;
-  background: var(--c-surface);
-}
-
-.file-tab {
-  min-height: 28px;
-  padding: 0 11px;
-  border: 1px solid var(--c-border);
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--c-text-2);
-  font-size: 0.73rem;
-  font-weight: 700;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.file-tab:hover {
-  background: var(--c-surface-2);
-  color: var(--c-text);
-}
-
-.file-tab.active {
-  background: var(--c-brand-dim);
-  border-color: var(--c-brand-border);
-  color: var(--c-brand);
-}
-
-.code-block {
-  max-height: 260px;
-  overflow: auto;
-  margin: 0;
-  padding: 14px 16px;
-  background: var(--c-bg);
-  color: #a8c4b0;
-  font-size: 0.73rem;
-  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
-  line-height: 1.65;
-}
-
-.deploy-card {
-  padding: 16px;
-  background: var(--c-surface-2);
-  border-top: 1px solid var(--c-border);
-}
-
-.deploy-meta {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 12px;
-}
-
-.deploy-row {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.78rem;
-}
-
-.deploy-row span { color: var(--c-text-2); }
-.deploy-row strong { color: var(--c-text); font-weight: 700; text-align: right; word-break: break-all; }
-
-.deploy-steps {
-  padding-left: 18px;
-  display: grid;
-  gap: 5px;
-}
-
-.deploy-steps li {
-  color: var(--c-text-2);
-  font-size: 0.76rem;
-  line-height: 1.5;
-}
 
 /* ── Fullscreen maximize overlay ── */
 .maximize-overlay {

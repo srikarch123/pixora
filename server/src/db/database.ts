@@ -1,14 +1,14 @@
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import Database from "better-sqlite3";
 import type { BusinessIntake, GeneratedSite, GenerationSummary, UserAccount } from "../types.js";
 
 const databasePath = process.env.DATABASE_URL?.replace("sqlite:", "") ?? join(process.cwd(), "data", "pixora.sqlite");
 mkdirSync(dirname(databasePath), { recursive: true });
 
-const db = new DatabaseSync(databasePath);
-db.exec("PRAGMA journal_mode = WAL");
-db.exec("PRAGMA foreign_keys = ON");
+const db = new Database(databasePath);
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
 export const initializeDatabase = () => {
   db.exec(`
@@ -51,12 +51,17 @@ export const initializeDatabase = () => {
       )
     `);
   } else {
-    // Table exists — migrate nullable user_id to NOT NULL if needed
+    // Table exists — migrate older or nullable user_id schemas to NOT NULL if needed
     const cols = db.prepare("PRAGMA table_info(generations)").all() as Array<{
       name: string;
       notnull: number;
     }>;
-    const userIdCol = cols.find((c) => c.name === "user_id");
+    let userIdCol = cols.find((c) => c.name === "user_id");
+
+    if (!userIdCol) {
+      db.exec("ALTER TABLE generations ADD COLUMN user_id TEXT");
+      userIdCol = { name: "user_id", notnull: 0 };
+    }
 
     if (userIdCol && !userIdCol.notnull) {
       // Orphan any generations with no user, reassign to the first user if only one exists
@@ -68,7 +73,7 @@ export const initializeDatabase = () => {
       db.exec("DELETE FROM generations WHERE user_id IS NULL");
 
       // Rebuild the table with NOT NULL enforced
-      db.exec("PRAGMA foreign_keys = OFF");
+      db.pragma("foreign_keys = OFF");
       db.exec(`
         BEGIN;
         CREATE TABLE generations_new (
@@ -87,7 +92,7 @@ export const initializeDatabase = () => {
         ALTER TABLE generations_new RENAME TO generations;
         COMMIT;
       `);
-      db.exec("PRAGMA foreign_keys = ON");
+      db.pragma("foreign_keys = ON");
     }
   }
 
@@ -181,4 +186,16 @@ export const getGeneration = (userId: string, id: string): GeneratedSite | null 
     .get(userId, id) as { generated_site_json: string } | undefined;
 
   return row ? (JSON.parse(row.generated_site_json) as GeneratedSite) : null;
+};
+
+export const getUsedTemplateIds = (userId: string, businessType: string): string[] =>
+  (
+    db
+      .prepare("SELECT template_id FROM generations WHERE user_id = ? AND business_type = ?")
+      .all(userId, businessType) as Array<{ template_id: string }>
+  ).map((r) => r.template_id);
+
+export const deleteGeneration = (userId: string, id: string): boolean => {
+  const result = db.prepare("DELETE FROM generations WHERE user_id = ? AND id = ?").run(userId, id);
+  return result.changes > 0;
 };

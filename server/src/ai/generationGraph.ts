@@ -16,14 +16,14 @@ const retrieveNode = (state: GenerationState): GenerationState => ({
   context: retrieveContext(state.intake)
 });
 
-const templateNode = (state: GenerationState): GenerationState => ({
+const templateNode = (state: GenerationState, usedTemplateIds: string[] = []): GenerationState => ({
   ...state,
-  templateId: selectTemplate(state.intake.businessType).id
+  templateId: selectTemplate(state.intake.businessType, usedTemplateIds).id
 });
 
-export const runGenerationGraph = async (intake: BusinessIntake): Promise<GeneratedSite> => {
+export const runGenerationGraph = async (intake: BusinessIntake, usedTemplateIds: string[] = []): Promise<GeneratedSite> => {
   const withContext = retrieveNode({ intake });
-  const withTemplate = templateNode(withContext);
+  const withTemplate = templateNode(withContext, usedTemplateIds);
   const { content, source } = await generateWebsiteContent(intake, withTemplate.context ?? []);
   const rendered = renderWebsite(intake, content, withTemplate.templateId ?? "local-service");
 

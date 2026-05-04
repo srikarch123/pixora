@@ -46,7 +46,6 @@ const fieldLabels: Record<string, string> = {
 export class AppComponent {
   protected readonly sectionOptions = sectionOptions;
   protected readonly activeView = signal<View>("dashboard");
-  protected readonly selectedFileIndex = signal(0);
   protected readonly generatedSite = signal<GeneratedSite | null>(null);
   protected readonly generations = signal<GenerationSummary[]>([]);
   protected readonly user = signal<UserAccount | null>(null);
@@ -60,11 +59,6 @@ export class AppComponent {
   protected readonly error = signal("");
   protected readonly authError = signal("");
   protected readonly currentIntake = signal<BusinessIntake | null>(null);
-
-  protected readonly activeFile = computed(() => {
-    const site = this.generatedSite();
-    return site?.files[this.selectedFileIndex()] ?? null;
-  });
 
   protected readonly previewSource = computed<SafeResourceUrl | null>(() => {
     const site = this.generatedSite();
@@ -181,29 +175,41 @@ export class AppComponent {
 
   protected generateSite() {
     if (!this.user()) {
+      console.warn("[Pixora] Generate blocked: no signed-in user.");
       this.error.set("Sign in to generate a website.");
       return;
     }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       const labels = this.invalidFieldLabels();
+      console.warn("[Pixora] Generate blocked: invalid form.", labels);
       this.error.set(labels.length ? `Please complete: ${labels.join(", ")}.` : "Please complete all required fields.");
       return;
     }
     this.loading.set(true);
     this.error.set("");
     this.isSaved.set(false);
-    this.selectedFileIndex.set(0);
     const intake = this.toIntake();
     this.currentIntake.set(intake);
+    console.info("[Pixora] Generate request started.", {
+      businessName: intake.businessName,
+      businessType: intake.businessType,
+      sections: intake.sections
+    });
 
     this.api.generate(intake).subscribe({
       next: (site) => {
+        console.info("[Pixora] Generate request completed.", {
+          id: site.id,
+          templateId: site.templateId,
+          source: site.generationSource?.provider
+        });
         this.generatedSite.set(site);
         this.loading.set(false);
       },
       error: (err: { error?: { message?: string }; message?: string; status?: number }) => {
         const msg = err.error?.message ?? err.message ?? "Unknown error";
+        console.error("[Pixora] Generate request failed.", err);
         this.error.set(`Generation failed${err.status ? ` (${err.status})` : ""}: ${msg}`);
         this.loading.set(false);
       }
@@ -232,17 +238,28 @@ export class AppComponent {
   protected openGeneration(id: string) {
     this.setView("generator");
     this.libraryLoading.set(true);
-    this.isSaved.set(true); // already saved if loading from library
+    this.isSaved.set(true);
     this.currentIntake.set(null);
     this.api.getGeneration(id).subscribe({
       next: (site) => {
         this.generatedSite.set(site);
-        this.selectedFileIndex.set(0);
         this.libraryLoading.set(false);
       },
       error: () => {
         this.error.set("Could not load that website.");
         this.libraryLoading.set(false);
+      }
+    });
+  }
+
+  protected deleteGeneration(id: string, event: Event) {
+    event.stopPropagation();
+    this.api.deleteGeneration(id).subscribe({
+      next: () => {
+        this.generations.update((gens) => gens.filter((g) => g.id !== id));
+      },
+      error: () => {
+        this.error.set("Could not delete the website. Please try again.");
       }
     });
   }

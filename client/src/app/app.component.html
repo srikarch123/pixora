@@ -163,7 +163,7 @@
         </div>
 
         <div class="sites-grid" *ngIf="!libraryLoading() && generations().length">
-          <button type="button" class="site-card" *ngFor="let g of generations().slice(0, 6)" (click)="openGeneration(g.id)">
+          <div class="site-card" *ngFor="let g of generations().slice(0, 6)" (click)="openGeneration(g.id)">
             <div class="site-card-stripe" [attr.data-type]="g.businessType"></div>
             <div class="site-card-body">
               <div class="site-tags">
@@ -173,7 +173,12 @@
               <strong class="site-name">{{ g.businessName }}</strong>
               <time class="site-date">{{ g.createdAt | date:'MMM d, y' }}</time>
             </div>
-          </button>
+            <button type="button" class="btn-delete-card" (click)="deleteGeneration(g.id, $event)" title="Delete website">
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+                <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="empty-state" *ngIf="!libraryLoading() && !generations().length">
@@ -383,30 +388,6 @@
           </button>
         </div>
 
-        <!-- File tabs + code viewer -->
-        <div class="file-viewer" *ngIf="generatedSite() as site">
-          <div class="file-tabs">
-            <button
-              type="button"
-              class="file-tab"
-              *ngFor="let file of site.files; let i = index"
-              [class.active]="i === selectedFileIndex()"
-              (click)="selectedFileIndex.set(i)"
-            >{{ file.path }}</button>
-          </div>
-          <pre class="code-block"><code>{{ activeFile()?.content }}</code></pre>
-
-          <div class="deploy-card">
-            <h4>Deployment plan</h4>
-            <div class="deploy-meta">
-              <div class="deploy-row"><span>Repository</span><strong>{{ site.deploymentPlan.repositoryName }}</strong></div>
-              <div class="deploy-row"><span>Host</span><strong>{{ site.deploymentPlan.suggestedHost }}</strong></div>
-            </div>
-            <ol class="deploy-steps">
-              <li *ngFor="let step of site.deploymentPlan.steps">{{ step }}</li>
-            </ol>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -425,7 +406,7 @@
       </div>
 
       <div class="sites-grid" *ngIf="!libraryLoading() && generations().length">
-        <button type="button" class="site-card" *ngFor="let g of generations()" (click)="openGeneration(g.id)">
+        <div class="site-card" *ngFor="let g of generations()" (click)="openGeneration(g.id)">
           <div class="site-card-stripe" [attr.data-type]="g.businessType"></div>
           <div class="site-card-body">
             <div class="site-tags">
@@ -435,7 +416,12 @@
             <strong class="site-name">{{ g.businessName }}</strong>
             <time class="site-date">{{ g.createdAt | date:'MMM d, y · h:mm a' }}</time>
           </div>
-        </button>
+          <button type="button" class="btn-delete-card" (click)="deleteGeneration(g.id, $event)" title="Delete website">
+            <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="empty-state" *ngIf="!libraryLoading() && !generations().length">
