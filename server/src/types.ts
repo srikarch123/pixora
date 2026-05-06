@@ -89,6 +89,28 @@ export interface UserAccount {
   name: string;
   email: string;
   createdAt: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  credits: number;
+}
+
+export interface CreditPackage {
+  id: string;
+  name: string;
+  description: string;
+  credits: number;
+  amountCents: number;
+  currency: string;
+}
+
+export interface CreditPurchase {
+  stripeSessionId: string;
+  userId: string;
+  packageId: string;
+  credits: number;
+  amountCents: number;
+  currency: string;
+  status: "completed";
 }
 
 export interface GenerationSummary {
@@ -97,4 +119,29 @@ export interface GenerationSummary {
   businessType: BusinessType;
   templateId: string;
   createdAt: string;
+}
+
+export interface AdminGenerationSummary extends GenerationSummary {
+  userId: string;
+  userEmail: string;
+  userName: string;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  credits: number;
+  generationCount: number;
+}
+
+export interface AdminStats {
+  users: number;
+  verifiedUsers: number;
+  admins: number;
+  generations: number;
+  totalCredits: number;
 }

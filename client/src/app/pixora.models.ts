@@ -27,6 +27,9 @@ export interface UserAccount {
   name: string;
   email: string;
   createdAt: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  credits: number;
 }
 
 export interface AuthResponse {
@@ -45,6 +48,8 @@ export interface GenerationSummary {
 export interface GeneratedSite {
   id: string;
   templateId: string;
+  credits?: number;
+  creditsCharged?: number;
   previewHtml: string;
   files: Array<{
     path: string;
@@ -68,4 +73,38 @@ export interface GeneratedSite {
     suggestedHost: string;
     steps: string[];
   };
+}
+
+export interface CreditPackage {
+  id: string;
+  name: string;
+  description: string;
+  credits: number;
+  amountCents: number;
+  currency: string;
+}
+
+export interface AdminGenerationSummary extends GenerationSummary {
+  userId: string;
+  userEmail: string;
+  userName: string;
+}
+
+export interface AdminUserSummary {
+  id: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  emailVerified: boolean;
+  isAdmin: boolean;
+  credits: number;
+  generationCount: number;
+}
+
+export interface AdminStats {
+  users: number;
+  verifiedUsers: number;
+  admins: number;
+  generations: number;
+  totalCredits: number;
 }

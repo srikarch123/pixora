@@ -14,7 +14,10 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "google-auth-library": "^10.6.2",
+    "nodemailer": "^8.0.7",
     "openai": "latest",
+    "stripe": "^22.1.0",
     "zod": "latest"
   },
   "devDependencies": {
@@ -22,6 +25,7 @@
     "@types/cors": "latest",
     "@types/express": "latest",
     "@types/node": "latest",
+    "@types/nodemailer": "^8.0.0",
     "tsx": "latest",
     "typescript": "latest"
   }

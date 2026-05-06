@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
 import type { BusinessIntake, BusinessType, GeneratedContent, RenderedFile } from "../types.js";
+import { maisonRenderers, maisonCssMap } from "./restaurant-maison.js";
 
 export interface WebsiteTemplate {
   id: string;
@@ -105,6 +106,36 @@ export const templates: WebsiteTemplate[] = [
     bestFor: ["beauty", "services"],
     imageGuidance: "Bright, airy, soft-lit photos — natural light, clean environments, or calm details.",
     description: "Soft and spacious wellness layout with rounded shapes, gentle gradients, and serene whitespace."
+  },
+
+  /* ── RESTAURANT — Maison Noir variants ── */
+  {
+    id: "maison-luxe",
+    name: "Maison Luxe",
+    bestFor: ["restaurant"],
+    imageGuidance: "Dark, atmospheric dining room or moody food photography. Gold/black tones shine here.",
+    description: "Elegant fine-dining template with gold accents, tasting menu showcase, and a reservation-forward layout."
+  },
+  {
+    id: "maison-azure",
+    name: "Maison Azure",
+    bestFor: ["restaurant"],
+    imageGuidance: "Sophisticated interior or plated dish photography with cool, refined lighting.",
+    description: "Fine-dining template in deep navy and steel-blue — story-first layout with an editorial feel."
+  },
+  {
+    id: "maison-rouge",
+    name: "Maison Rouge",
+    bestFor: ["restaurant"],
+    imageGuidance: "Dramatic, passionate food or interior photography. Rich, warm lighting works best.",
+    description: "Dramatic dark-crimson fine-dining template — tasting menu leads, menu follows, bold and passionate."
+  },
+  {
+    id: "maison-verdant",
+    name: "Maison Verdant",
+    bestFor: ["restaurant"],
+    imageGuidance: "Garden-to-table or seasonal food photography. Natural textures and greenery welcome.",
+    description: "Dark sage-green fine-dining template — tasting menu featured first, natural and sophisticated."
   },
 
   /* ── RESTAURANT — exclusive ── */
@@ -1362,6 +1393,8 @@ const renderers: Record<string, TemplateRenderer> = {
   "mosaic-visual": mosaicVisual,
   "bold-magazine": boldMagazine,
   "wellness-light": wellnessLight,
+  /* maison noir variants */
+  ...maisonRenderers,
   /* restaurant */
   "restaurant-tableside": restaurantTableside,
   "restaurant-chalkboard": restaurantChalkboard,
@@ -1541,6 +1574,9 @@ const templateCss: Record<string, string> = {
 .wl-gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:clamp(20px,4vw,60px);background:#f8f5f0}
 .wl-gallery img{height:280px;border-radius:calc(var(--radius)*1.8);object-fit:cover}
 .wl-quotes blockquote{border-radius:calc(var(--radius)*1.6)}`,
+
+  /* ── MAISON NOIR VARIANTS ── */
+  ...maisonCssMap,
 
   /* ── RESTAURANT EXCLUSIVE ── */
   "restaurant-tableside": `.ts-header{background:var(--ink)!important;border-bottom-color:rgba(200,188,160,.08)!important}

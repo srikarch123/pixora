@@ -1,3 +1,20 @@
+<!-- ═══════════════════════════════════════════════════════════ VERIFIED TOAST -->
+<div class="toast toast-success" *ngIf="verifiedToast()">
+  <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+    <circle cx="8" cy="8" r="7" stroke="#4afa7c" stroke-width="1.5"/>
+    <path d="M5 8l2 2 4-4" stroke="#4afa7c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  Email verified! You're all set.
+</div>
+
+<div class="toast toast-success" *ngIf="billingToast()">
+  <svg viewBox="0 0 16 16" fill="none" width="15" height="15">
+    <circle cx="8" cy="8" r="7" stroke="#4afa7c" stroke-width="1.5"/>
+    <path d="M5 8l2 2 4-4" stroke="#4afa7c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  {{ billingToast() }}
+</div>
+
 <!-- ═══════════════════════════════════════════════════════════ SESSION RESTORE -->
 <div class="splash" *ngIf="authLoading() && !user()">
   <div class="splash-logo">
@@ -62,11 +79,39 @@
       </button>
       <p class="form-error" *ngIf="authError()">{{ authError() }}</p>
     </form>
+
+    <div class="auth-divider" [style.display]="showGoogleButton() ? 'flex' : 'none'">
+      <span>or</span>
+    </div>
+    <div id="g_id_signin" class="google-btn-wrapper"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ VERIFY EMAIL SCREEN -->
+<div class="verify-screen" *ngIf="needsVerification() && !authLoading()">
+  <div class="verify-card">
+    <div class="verify-icon">
+      <svg viewBox="0 0 24 24" fill="none" width="28" height="28">
+        <path d="M4 6.5h16v11H4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M4.5 7l7.5 6 7.5-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <p class="eyebrow">Verify email</p>
+    <h1>Check your inbox</h1>
+    <p class="verify-copy">
+      We sent a verification link to <strong>{{ user()?.email }}</strong>. Confirm your email to access your Pixora workspace.
+    </p>
+    <div class="verify-actions">
+      <button type="button" class="btn-primary" (click)="resendVerification()" [disabled]="resendLoading()">
+        {{ resendSent() ? 'Email sent' : resendLoading() ? 'Sending…' : 'Resend email' }}
+      </button>
+      <button type="button" class="btn-ghost" (click)="logout()">Sign out</button>
+    </div>
   </div>
 </div>
 
 <!-- ═══════════════════════════════════════════════════════════ APP SHELL -->
-<div class="app-shell" *ngIf="user()">
+<div class="app-shell" *ngIf="hasVerifiedAccess()">
 
   <!-- ─── SIDEBAR ─── -->
   <aside class="sidebar">
@@ -94,23 +139,32 @@
         </svg>
         New website
       </button>
-      <button type="button" class="nav-item" [class.active]="activeView() === 'library'" (click)="setView('library')">
-        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
-          <rect x="2" y="3" width="16" height="3" rx="1.5" fill="currentColor"/>
-          <rect x="2" y="9" width="16" height="3" rx="1.5" fill="currentColor" opacity=".6"/>
-          <rect x="2" y="15" width="10" height="3" rx="1.5" fill="currentColor" opacity=".4"/>
+	      <button type="button" class="nav-item" [class.active]="activeView() === 'library'" (click)="setView('library')">
+	        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+	          <rect x="2" y="3" width="16" height="3" rx="1.5" fill="currentColor"/>
+	          <rect x="2" y="9" width="16" height="3" rx="1.5" fill="currentColor" opacity=".6"/>
+	          <rect x="2" y="15" width="10" height="3" rx="1.5" fill="currentColor" opacity=".4"/>
         </svg>
-        Library
-        <span class="nav-badge" *ngIf="generations().length">{{ generations().length }}</span>
-      </button>
-    </nav>
+	        Library
+	        <span class="nav-badge" *ngIf="generations().length">{{ generations().length }}</span>
+	      </button>
+	      <button type="button" class="nav-item" [class.active]="activeView() === 'admin'" (click)="setView('admin')" *ngIf="hasAdminAccess()">
+	        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+	          <path d="M10 2l6 2.5v5.2c0 3.8-2.4 6.8-6 8.3-3.6-1.5-6-4.5-6-8.3V4.5L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+	          <path d="M7.5 10l1.7 1.7 3.6-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+	        </svg>
+	        Admin
+	      </button>
+	    </nav>
 
     <div class="sidebar-user">
       <div class="avatar">{{ user()?.name?.[0]?.toUpperCase() }}</div>
-      <div class="user-text">
-        <strong>{{ user()?.name }}</strong>
-        <small>{{ user()?.email }}</small>
-      </div>
+	      <div class="user-text">
+	        <strong>{{ user()?.name }}</strong>
+	        <small>{{ user()?.email }}</small>
+	        <small *ngIf="!user()?.isAdmin">{{ user()?.credits ?? 0 }} credits</small>
+	        <small *ngIf="user()?.isAdmin">Admin · unlimited credits</small>
+	      </div>
       <button type="button" class="signout-btn" (click)="logout()" title="Sign out">
         <svg viewBox="0 0 20 20" fill="none" width="15" height="15">
           <path d="M13 7l3 3-3 3M16 10H8M10 4H5a1 1 0 00-1 1v10a1 1 0 001 1h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -121,6 +175,19 @@
 
   <!-- ─── MAIN ─── -->
   <main class="main">
+
+    <!-- ─── VERIFICATION BANNER ─── -->
+    <div class="verify-banner" *ngIf="needsVerification()">
+      <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
+        <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M8 5v3.5M8 11v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>Please verify your email address. Check your inbox or
+        <button type="button" class="btn-resend" (click)="resendVerification()" [disabled]="resendLoading()">
+          {{ resendSent() ? 'Sent!' : resendLoading() ? 'Sending…' : 'resend verification email' }}
+        </button>
+      </span>
+    </div>
 
     <!-- ════ DASHBOARD VIEW ════ -->
     <div class="view" *ngIf="activeView() === 'dashboard'">
@@ -146,11 +213,15 @@
           <span>Templates used</span>
           <strong>{{ stats().templates }}</strong>
         </div>
-        <div class="stat-card">
-          <span>Latest save</span>
-          <strong class="stat-date">{{ stats().latest }}</strong>
-        </div>
-      </div>
+	        <div class="stat-card">
+	          <span>Latest save</span>
+	          <strong class="stat-date">{{ stats().latest }}</strong>
+	        </div>
+	        <div class="stat-card">
+	          <span>Credits</span>
+	          <strong>{{ user()?.isAdmin ? '∞' : user()?.credits ?? 0 }}</strong>
+	        </div>
+	      </div>
 
       <div class="section-block">
         <div class="section-head">
@@ -211,9 +282,36 @@
           </button>
         </div>
 
-        <p class="form-error" *ngIf="error()">{{ error() }}</p>
+	        <p class="form-error" *ngIf="error()">{{ error() }}</p>
+	        <div class="credit-notice" [class.empty]="!canGenerateWithCredits()" *ngIf="!user()?.isAdmin">
+	          <div>
+	            <strong>{{ user()?.credits ?? 0 }} credits available</strong>
+	            <span>{{ generationCreditCost }} credits per website generation</span>
+	          </div>
+	          <button
+	            type="button"
+	            class="btn-ghost"
+	            (click)="buyCredits(recommendedCreditPackage()!.id)"
+	            [disabled]="billingLoading() || !recommendedCreditPackage()"
+	          >
+	            Buy credits
+	          </button>
+	        </div>
+	        <div class="credit-packages" *ngIf="!user()?.isAdmin && creditPackages().length">
+	          <button
+	            type="button"
+	            class="credit-package"
+	            *ngFor="let pack of creditPackages()"
+	            (click)="buyCredits(pack.id)"
+	            [disabled]="billingLoading()"
+	          >
+	            <strong>{{ pack.credits }} credits</strong>
+	            <span>{{ formatCreditPackagePrice(pack) }} · {{ pack.name }}</span>
+	          </button>
+	        </div>
+	        <p class="form-error" *ngIf="billingError()">{{ billingError() }}</p>
 
-        <form [formGroup]="form" (ngSubmit)="generateSite()">
+	        <form [formGroup]="form" (ngSubmit)="generateSite()">
           <div class="form-section">
             <div class="form-section-label">
               <span class="section-num">01</span>
@@ -433,12 +531,160 @@
         </div>
         <strong>No saved websites yet</strong>
         <p>Generate a site and click "Save to library" to keep it here.</p>
-        <button type="button" class="btn-primary" (click)="setView('generator')">Create first website</button>
-      </div>
-    </div>
+	        <button type="button" class="btn-primary" (click)="setView('generator')">Create first website</button>
+	      </div>
+	    </div>
 
-  </main>
-</div>
+	    <!-- ════ ADMIN VIEW ════ -->
+	    <div class="view" *ngIf="activeView() === 'admin' && hasAdminAccess()">
+	      <div class="page-head">
+	        <div>
+	          <p class="eyebrow">Admin</p>
+	          <h1>Control center</h1>
+	        </div>
+	        <button type="button" class="btn-ghost" (click)="setView('admin')" [disabled]="adminLoading()">Refresh</button>
+	      </div>
+
+	      <p class="form-error page-error" *ngIf="adminError()">{{ adminError() }}</p>
+
+	      <div class="stats-row">
+	        <div class="stat-card">
+	          <span>Total users</span>
+	          <strong>{{ adminStats()?.users ?? 0 }}</strong>
+	        </div>
+	        <div class="stat-card">
+	          <span>Verified users</span>
+	          <strong>{{ adminStats()?.verifiedUsers ?? 0 }}</strong>
+	        </div>
+	        <div class="stat-card">
+	          <span>Generated sites</span>
+	          <strong>{{ adminStats()?.generations ?? 0 }}</strong>
+	        </div>
+	        <div class="stat-card">
+	          <span>Total credits</span>
+	          <strong>{{ adminStats()?.totalCredits ?? 0 }}</strong>
+	        </div>
+	      </div>
+
+	      <div class="admin-toolbar">
+	        <input
+	          type="search"
+	          placeholder="Search users"
+	          [value]="adminUserSearch()"
+	          (input)="adminUserSearch.set($any($event.target).value)"
+	        >
+	        <select [value]="adminUserFilter()" (change)="adminUserFilter.set($any($event.target).value)">
+	          <option value="all">All users</option>
+	          <option value="admins">Admins only</option>
+	          <option value="unverified">Unverified</option>
+	        </select>
+	        <input
+	          type="search"
+	          placeholder="Search websites"
+	          [value]="adminSiteSearch()"
+	          (input)="adminSiteSearch.set($any($event.target).value)"
+	        >
+	      </div>
+
+	      <div class="admin-grid">
+	        <section class="admin-panel">
+	          <div class="section-head">
+	            <h2>Users</h2>
+	            <span class="count-pill">{{ filteredAdminUsers().length }} shown</span>
+	          </div>
+	          <div class="admin-list" *ngIf="!adminLoading(); else adminLoadingTpl">
+	            <div class="admin-row" *ngFor="let u of filteredAdminUsers()">
+	              <div class="admin-row-main">
+	                <strong>{{ u.name }}</strong>
+	                <small>{{ u.email }}</small>
+	                <div class="site-tags">
+	                  <span class="tag" *ngIf="u.isAdmin">admin</span>
+	                  <span class="tag">{{ u.emailVerified ? 'verified' : 'unverified' }}</span>
+	                  <span class="tag">{{ u.credits }} credits</span>
+	                  <span class="tag dim">{{ u.generationCount }} sites</span>
+	                </div>
+	              </div>
+	              <time>{{ u.createdAt | date:'MMM d, y' }}</time>
+	              <div class="admin-actions">
+	                <button type="button" class="admin-action-btn" (click)="viewAdminUserSites(u.id, $event)">Sites</button>
+	                <button type="button" class="admin-action-btn" (click)="adjustAdminUserCredits(u, -generationCreditCost, $event)">-{{ generationCreditCost }}</button>
+	                <input
+	                  class="admin-credit-input"
+	                  type="number"
+	                  min="0"
+	                  step="1"
+	                  [value]="u.credits"
+	                  (change)="setAdminUserCredits(u.id, $any($event.target).value, $event)"
+	                >
+	                <button type="button" class="admin-action-btn" (click)="adjustAdminUserCredits(u, generationCreditCost, $event)">+{{ generationCreditCost }}</button>
+	                <button
+	                  type="button"
+	                  class="admin-action-btn"
+	                  (click)="updateAdminUser(u.id, { emailVerified: true }, $event)"
+	                  [disabled]="u.emailVerified"
+	                >
+	                  Verify
+	                </button>
+	                <button
+	                  type="button"
+	                  class="admin-action-btn"
+	                  (click)="updateAdminUser(u.id, { isAdmin: !u.isAdmin }, $event)"
+	                  [disabled]="u.id === user()?.id"
+	                >
+	                  {{ u.isAdmin ? 'Demote' : 'Admin' }}
+	                </button>
+	                <button
+	                  type="button"
+	                  class="admin-delete-btn"
+	                  (click)="deleteAdminUser(u.id, $event)"
+	                  [disabled]="u.id === user()?.id"
+	                  title="Delete user"
+	                >
+	                  Delete
+	                </button>
+	              </div>
+	            </div>
+	            <div class="empty-state compact" *ngIf="!filteredAdminUsers().length">
+	              <strong>No users found</strong>
+	            </div>
+	          </div>
+	        </section>
+
+	        <section class="admin-panel">
+	          <div class="section-head">
+	            <h2>{{ adminSiteHeading() }}</h2>
+	            <button type="button" class="btn-ghost" (click)="showAllAdminSites()" *ngIf="selectedAdminUserId()">Show all</button>
+	            <span class="count-pill">{{ filteredAdminGenerations().length }} shown</span>
+	          </div>
+	          <div class="admin-list" *ngIf="!adminLoading(); else adminLoadingTpl">
+	            <div class="admin-row" *ngFor="let g of filteredAdminGenerations()">
+	              <div class="admin-row-main">
+	                <strong>{{ g.businessName }}</strong>
+	                <small>{{ g.userName }} · {{ g.userEmail }}</small>
+	                <div class="site-tags">
+	                  <span class="tag">{{ g.businessType }}</span>
+	                  <span class="tag dim">{{ g.templateId }}</span>
+	                </div>
+	              </div>
+	              <time>{{ g.createdAt | date:'MMM d, y' }}</time>
+	              <button type="button" class="admin-delete-btn" (click)="deleteAdminGeneration(g.id, $event)" title="Delete generated website">
+	                Delete
+	              </button>
+	            </div>
+	            <div class="empty-state compact" *ngIf="!filteredAdminGenerations().length">
+	              <strong>No generated websites found</strong>
+	            </div>
+	          </div>
+	        </section>
+	      </div>
+	    </div>
+
+	    <ng-template #adminLoadingTpl>
+	      <div class="admin-loading">Loading admin data…</div>
+	    </ng-template>
+
+	  </main>
+	</div>
 
 <!-- ═══════════════════════════════════════════════════════════ FULLSCREEN OVERLAY -->
 <div class="maximize-overlay" *ngIf="isMaximized() && previewSource()">
