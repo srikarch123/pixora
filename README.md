@@ -71,7 +71,7 @@ Admin emails are automatically marked verified and get access to the admin dashb
 
 Regular users start with 5 credits. A website generation costs 5 credits. Admin accounts do not spend credits, and admins can edit user balances from the admin dashboard.
 
-Credit purchases use Stripe Checkout. The current packages are:
+Credit purchases use one-time Stripe Checkout sessions. This is a better fit than subscriptions for Pixora because customers can buy generation capacity when they need it, while every generation still has a predictable 5-credit cost. The current packages are:
 
 - Starter pack: $5 for 10 credits
 - Growth pack: $15 for 35 credits
@@ -92,7 +92,7 @@ For local webhook testing, forward Stripe events to the API:
 stripe listen --forward-to localhost:3000/api/billing/webhook
 ```
 
-Credits are only added when Stripe sends `checkout.session.completed`, so the webhook must be configured in local development and production.
+Credits are added idempotently from Stripe's paid Checkout session. The app reconciles credits when the customer returns from Checkout, and the webhook should still be configured in local development and production so credits are applied even if the customer closes the browser before returning to Pixora.
 
 For regular signup verification emails, configure SMTP:
 

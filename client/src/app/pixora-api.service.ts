@@ -57,6 +57,14 @@ export class PixoraApiService {
     return this.http.post<{ url: string }>("/api/billing/checkout", { packageId }, { headers: this.authHeaders });
   }
 
+  syncCheckoutSession(sessionId: string) {
+    return this.http.post<{ applied: boolean; credits: number | null; status: string; message: string }>(
+      "/api/billing/checkout/sync",
+      { sessionId },
+      { headers: this.authHeaders }
+    );
+  }
+
   generate(intake: BusinessIntake) {
     return this.http.post<GeneratedSite>("/api/generate", intake, { headers: this.authHeaders });
   }

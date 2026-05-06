@@ -210,17 +210,22 @@ export class AppComponent {
       setTimeout(() => this.verifiedToast.set(false), 5000);
     }
     const checkout = params.get("checkout");
+    const checkoutSessionId = params.get("session_id");
     if (checkout === "success" || checkout === "cancel") {
       window.history.replaceState({}, "", window.location.pathname);
       this.billingToast.set(
         checkout === "success"
-          ? "Payment complete. Your credits will appear in a moment."
+          ? "Payment complete. Adding your credits now."
           : "Checkout cancelled. No credits were purchased."
       );
       setTimeout(() => this.billingToast.set(""), 7000);
       if (checkout === "success") {
-        setTimeout(() => this.refreshUserCredits(), 2000);
-        setTimeout(() => this.refreshUserCredits(), 6000);
+        if (checkoutSessionId) {
+          this.syncCheckoutReturn(checkoutSessionId);
+        } else {
+          setTimeout(() => this.refreshUserCredits(), 2000);
+          setTimeout(() => this.refreshUserCredits(), 6000);
+        }
       }
     }
 
@@ -495,6 +500,33 @@ export class AppComponent {
       error: (err: { error?: { message?: string } }) => {
         this.billingError.set(err.error?.message ?? "Could not start checkout.");
         this.billingLoading.set(false);
+      }
+    });
+  }
+
+  private syncCheckoutReturn(sessionId: string) {
+    this.billingLoading.set(true);
+    this.billingError.set("");
+    this.api.syncCheckoutSession(sessionId).subscribe({
+      next: ({ credits, status }) => {
+        if (typeof credits === "number") {
+          this.user.update((u) => (u ? { ...u, credits } : u));
+          this.billingToast.set(`Payment complete. Your balance is now ${credits} credits.`);
+        } else if (status === "paid") {
+          this.refreshUserCredits();
+          this.billingToast.set("Payment complete. Refreshing your credit balance.");
+        } else {
+          this.billingToast.set("Checkout returned before payment completed. Your credits will update after Stripe confirms payment.");
+        }
+        this.billingLoading.set(false);
+        setTimeout(() => this.refreshUserCredits(), 3000);
+        setTimeout(() => this.billingToast.set(""), 7000);
+      },
+      error: (err: { error?: { message?: string } }) => {
+        this.billingError.set(err.error?.message ?? "Payment completed, but Pixora could not refresh your credits yet.");
+        this.billingLoading.set(false);
+        setTimeout(() => this.refreshUserCredits(), 3000);
+        setTimeout(() => this.refreshUserCredits(), 8000);
       }
     });
   }

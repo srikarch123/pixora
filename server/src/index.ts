@@ -52,7 +52,8 @@ const port = Number(process.env.PORT ?? 3000);
 const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:4200";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
-const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const isValidStripeSecretKey = stripeSecretKey.startsWith("sk_test_") || stripeSecretKey.startsWith("sk_live_");
+const stripe = isValidStripeSecretKey ? new Stripe(stripeSecretKey) : null;
 const adminEmails = new Set(
   (process.env.ADMIN_EMAILS ?? "")
     .split(",")
@@ -63,6 +64,10 @@ const adminEmails = new Set(
 app.use(cors({ origin: clientOrigin }));
 
 app.post("/api/billing/webhook", express.raw({ type: "application/json" }), (request, response) => {
+  if (stripeSecretKey && !isValidStripeSecretKey) {
+    response.status(501).json({ message: "Stripe secret key must start with sk_test_ or sk_live_." });
+    return;
+  }
   if (!stripe || !stripeWebhookSecret) {
     response.status(501).json({ message: "Stripe webhooks are not configured." });
     return;
@@ -83,38 +88,10 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), (req
   }
 
   if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    if (session.payment_status === "paid") {
-      const packageId = session.metadata?.packageId ?? "";
-      const userId = session.metadata?.userId ?? "";
-      const pack = findCreditPackage(packageId);
-      const credits = Number(session.metadata?.credits);
-      const amountPaid = session.amount_total ?? 0;
-      const currency = (session.currency ?? "").toLowerCase();
-
-      if (!pack || !userId || !Number.isInteger(credits) || credits <= 0) {
-        response.status(400).json({ message: "Checkout session is missing credit metadata." });
-        return;
-      }
-      if (credits !== pack.credits || amountPaid !== pack.amountCents || currency !== pack.currency) {
-        response.status(400).json({ message: "Checkout session does not match a Pixora credit package." });
-        return;
-      }
-
-      const newCredits = completeCreditPurchase({
-        stripeSessionId: session.id,
-        userId,
-        packageId,
-        credits,
-        amountCents: amountPaid,
-        currency,
-        status: "completed"
-      });
-
-      if (newCredits === null) {
-        response.status(400).json({ message: "Could not apply credits for this checkout session." });
-        return;
-      }
+    const result = applyPaidCreditCheckoutSession(event.data.object as Stripe.Checkout.Session);
+    if (!result.ok) {
+      response.status(result.status).json({ message: result.message });
+      return;
     }
   }
 
@@ -174,6 +151,10 @@ const adminUserUpdateSchema = z.object({
 
 const checkoutSchema = z.object({
   packageId: z.string().min(1)
+});
+
+const checkoutSyncSchema = z.object({
+  sessionId: z.string().min(1)
 });
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -242,6 +223,50 @@ const requireAdmin = (_request: express.Request, response: express.Response, nex
     return;
   }
   next();
+};
+
+const applyPaidCreditCheckoutSession = (session: Stripe.Checkout.Session, expectedUserId?: string) => {
+  if (session.payment_status !== "paid") {
+    return {
+      ok: true as const,
+      applied: false,
+      credits: null,
+      message: `Checkout session is ${session.payment_status}.`
+    };
+  }
+
+  const packageId = session.metadata?.packageId ?? "";
+  const userId = session.metadata?.userId ?? "";
+  const pack = findCreditPackage(packageId);
+  const credits = Number(session.metadata?.credits);
+  const amountPaid = session.amount_total ?? 0;
+  const currency = (session.currency ?? "").toLowerCase();
+
+  if (expectedUserId && userId !== expectedUserId) {
+    return { ok: false as const, status: 403, message: "This checkout session belongs to a different user." };
+  }
+  if (!pack || !userId || !Number.isInteger(credits) || credits <= 0) {
+    return { ok: false as const, status: 400, message: "Checkout session is missing credit metadata." };
+  }
+  if (credits !== pack.credits || amountPaid !== pack.amountCents || currency !== pack.currency) {
+    return { ok: false as const, status: 400, message: "Checkout session does not match a Pixora credit package." };
+  }
+
+  const newCredits = completeCreditPurchase({
+    stripeSessionId: session.id,
+    userId,
+    packageId,
+    credits,
+    amountCents: amountPaid,
+    currency,
+    status: "completed"
+  });
+
+  if (newCredits === null) {
+    return { ok: false as const, status: 400, message: "Could not apply credits for this checkout session." };
+  }
+
+  return { ok: true as const, applied: true, credits: newCredits, message: "Credits applied." };
 };
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
@@ -427,6 +452,10 @@ app.get("/api/billing/credit-packages", requireUser, requireVerifiedUser, (_requ
 
 app.post("/api/billing/checkout", requireUser, requireVerifiedUser, async (request, response, next) => {
   try {
+    if (stripeSecretKey && !isValidStripeSecretKey) {
+      response.status(501).json({ message: "Stripe secret key must start with sk_test_ or sk_live_." });
+      return;
+    }
     if (!stripe) {
       response.status(501).json({ message: "Stripe is not configured yet. Add STRIPE_SECRET_KEY on the server." });
       return;
@@ -488,6 +517,43 @@ app.post("/api/billing/checkout", requireUser, requireVerifiedUser, async (reque
     }
 
     response.json({ url: session.url });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/billing/checkout/sync", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    if (stripeSecretKey && !isValidStripeSecretKey) {
+      response.status(501).json({ message: "Stripe secret key must start with sk_test_ or sk_live_." });
+      return;
+    }
+    if (!stripe) {
+      response.status(501).json({ message: "Stripe is not configured yet. Add STRIPE_SECRET_KEY on the server." });
+      return;
+    }
+
+    const user = response.locals.user as UserAccount;
+    if (user.isAdmin) {
+      response.status(400).json({ message: "Admin accounts already have unlimited generation credits." });
+      return;
+    }
+
+    const input = checkoutSyncSchema.parse(request.body);
+    const session = await stripe.checkout.sessions.retrieve(input.sessionId);
+    const result = applyPaidCreditCheckoutSession(session, user.id);
+
+    if (!result.ok) {
+      response.status(result.status).json({ message: result.message });
+      return;
+    }
+
+    response.json({
+      applied: result.applied,
+      credits: result.credits,
+      status: session.payment_status,
+      message: result.message
+    });
   } catch (error) {
     next(error);
   }
