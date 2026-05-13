@@ -202,6 +202,23 @@ const domainCheckoutSchema = z.object({
   autoRenew: z.boolean()
 });
 
+const existingDomainSchema = z.object({
+  domain: z
+    .string()
+    .trim()
+    .min(4)
+    .max(253)
+    .transform((value) =>
+      value
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/.*$/, "")
+        .replace(/\.$/, "")
+    )
+    .refine((value) => !value.endsWith(".localhost"), "Use a real domain, not a localhost address.")
+    .refine((value) => /^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(value), "Enter a valid domain, like example.com.")
+});
+
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
 
 const hashToken = (token: string) => scryptSync(token, "pixora-session-token", 32).toString("hex");
@@ -339,19 +356,20 @@ const getRequestOrigin = (request: express.Request) => {
 
 const buildDeploymentResponse = (request: express.Request, generation: NonNullable<ReturnType<typeof getGenerationSummary>>) => {
   const origin = getRequestOrigin(request);
-  const publicUrl = `${origin}/${generation.publishSlug}`;
   const customDomainUrl = generation.customDomain ? `https://${generation.customDomain}` : null;
   const siteProtocol = isLocalDomain ? "http" : "https";
   const defaultPort = isLocalDomain ? 80 : 443;
   const sitePort = port !== defaultPort ? `:${port}` : "";
   const subdomainUrl = `${siteProtocol}://${generation.publishSlug}.${siteDomain}${sitePort}`;
+  const pathUrl = `${origin}/${generation.publishSlug}`;
+  const publicUrl = isLocalDomain ? subdomainUrl : pathUrl;
   const hostActions: Record<typeof generation.hostingProvider, { label: string; url: string }> = {
     "pixora-local": { label: "Open local Pixora site", url: subdomainUrl },
     vercel: { label: "Continue to Vercel", url: "https://vercel.com/new" },
     netlify: { label: "Continue to Netlify", url: "https://app.netlify.com/drop" },
     "cloudflare-pages": {
-      label: "Open on Cloudflare Pages",
-      url: `https://${pagesProjectName(generation.id)}.pages.dev`
+      label: isLocalDomain ? "Open local Pixora site" : "Open on Cloudflare Pages",
+      url: isLocalDomain ? subdomainUrl : `https://${pagesProjectName(generation.id)}.pages.dev`
     },
     "self-hosted": { label: "Open published HTML", url: publicUrl }
   };
@@ -366,6 +384,11 @@ const buildDeploymentResponse = (request: express.Request, generation: NonNullab
 };
 
 const publicHtml = (site: GeneratedSite) => site.previewHtml;
+
+const dnsNameForDomain = (domain: string) => {
+  const parts = domain.split(".");
+  return parts.length > 2 ? parts.slice(0, -2).join(".") : "@";
+};
 
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
@@ -557,29 +580,25 @@ app.post("/api/generations/:id/connect-domain", requireUser, requireVerifiedUser
   try {
     const user = response.locals.user as UserAccount;
     const generationId = String(request.params.id);
-    const { domain } = request.body as { domain?: string };
-    if (!domain || typeof domain !== "string" || domain.trim().length < 4) {
-      response.status(400).json({ message: "Enter a valid domain name." });
-      return;
-    }
+    const { domain } = existingDomainSchema.parse(request.body);
     const generation = getGeneration(user.id, generationId);
     if (!generation) {
       response.status(404).json({ message: "Generation not found. Publish it first." });
       return;
     }
-    const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain.trim().toLowerCase());
-    updateGenerationDeployment(user.id, generationId, {
-      customDomain: domain.trim().toLowerCase(),
+    const updatedSummary = updateGenerationDeployment(user.id, generationId, {
+      customDomain: domain,
       hostingProvider: "cloudflare-pages"
     });
-    const summary = getGenerationSummary(user.id, generationId);
+    const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain);
     const projectName = pagesProjectName(generationId);
     response.json({
       connected: true,
-      domain: domain.trim().toLowerCase(),
+      domain,
       pagesUrl,
       cname: `${projectName}.pages.dev`,
-      deployment: summary ? buildDeploymentResponse(request, summary) : null
+      dnsName: dnsNameForDomain(domain),
+      deployment: updatedSummary ? buildDeploymentResponse(request, updatedSummary) : null
     });
   } catch (error) {
     next(error);
@@ -1127,7 +1146,8 @@ app.use((request, response, next) => {
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof z.ZodError) {
-    res.status(400).json({ message: "Invalid intake data", issues: error.issues });
+    const message = error.issues[0]?.message ?? "Invalid request data.";
+    res.status(400).json({ message, issues: error.issues });
     return;
   }
   if (error instanceof CloudflareRegistrarError) {

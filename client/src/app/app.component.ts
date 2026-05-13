@@ -97,6 +97,7 @@ export class AppComponent {
   protected readonly resendLoading = signal(false);
   protected readonly resendSent = signal(false);
   protected readonly deploymentLoading = signal(false);
+  protected readonly publishSlugDraft = signal("");
   protected readonly customDomainDraft = signal("");
   protected readonly hostingProviderDraft = signal<GenerationSummary["hostingProvider"]>("pixora-local");
   protected readonly domainQuery = signal("");
@@ -111,10 +112,11 @@ export class AppComponent {
   protected readonly domainAutoRenew = signal(true);
   protected readonly selectedDomainGenerationId = signal("");
   protected readonly showBuyDomainModal = signal(false);
+  protected readonly pendingDomainRedirect = signal<DomainSuggestion | null>(null);
   protected readonly connectDomainInput = signal("");
   protected readonly connectDomainLoading = signal(false);
   protected readonly connectDomainError = signal("");
-  protected readonly connectDomainResult = signal<{ cname: string; domain: string } | null>(null);
+  protected readonly connectDomainResult = signal<{ cname: string; dnsName: string; domain: string } | null>(null);
 
   protected readonly needsVerification = computed(() => {
     const u = this.user();
@@ -428,13 +430,13 @@ export class AppComponent {
 
   protected readonly pagesUrlForTargetGen = computed(() => {
     const gen = this.domainTargetGeneration();
-    if (!gen || gen.hostingProvider !== "cloudflare-pages") return null;
-    return `https://px-${gen.id.replace(/-/g, "").slice(0, 20)}.pages.dev`;
+    if (!gen) return null;
+    return gen.customDomain ? `https://${gen.customDomain}` : gen.publicUrl;
   });
 
   protected readonly pagesUrl = computed(() => {
     const d = this.deployment();
-    return d?.hostActionUrl ?? null;
+    return d?.customDomainUrl ?? d?.publicUrl ?? null;
   });
 
   protected readonly firstNameDisplay = computed(() => {
@@ -757,9 +759,7 @@ export class AppComponent {
       this.api.saveGeneration(intake, site).subscribe({
         next: ({ deployment }) => {
           this.isSaved.set(true);
-          this.deployment.set(deployment);
-          this.customDomainDraft.set(deployment.customDomain ?? "");
-          this.hostingProviderDraft.set(deployment.hostingProvider);
+          this.applyDeployment(deployment);
           this.publishLoading.set(false);
           this.loadGenerations();
         },
@@ -772,7 +772,7 @@ export class AppComponent {
       // Re-publish: re-deploy existing saved site to Pages
       this.api.publishGeneration(site.id).subscribe({
         next: ({ deployment }) => {
-          this.deployment.set(deployment);
+          this.applyDeployment(deployment);
           this.publishLoading.set(false);
           this.loadGenerations();
         },
@@ -782,6 +782,20 @@ export class AppComponent {
         }
       });
     }
+  }
+
+  private applyDeployment(deployment: GenerationDeployment | null) {
+    this.deployment.set(deployment);
+    if (!deployment) {
+      this.customDomainDraft.set("");
+      this.publishSlugDraft.set("");
+      this.hostingProviderDraft.set("pixora-local");
+      this.deploymentError.set("Saved, but Pixora could not load deployment details. Try publishing again.");
+      return;
+    }
+    this.publishSlugDraft.set(deployment.publishSlug);
+    this.customDomainDraft.set(deployment.customDomain ?? "");
+    this.hostingProviderDraft.set(deployment.hostingProvider);
   }
 
   protected copyToClipboard(text: string) {
@@ -803,6 +817,7 @@ export class AppComponent {
         this.generatedSite.set(site);
         this.currentIntake.set(intake);
         this.deployment.set(deployment);
+        this.publishSlugDraft.set(deployment?.publishSlug ?? "");
         this.customDomainDraft.set(deployment?.customDomain ?? "");
         this.hostingProviderDraft.set(deployment?.hostingProvider ?? "pixora-local");
         this.libraryLoading.set(false);
@@ -843,12 +858,14 @@ export class AppComponent {
     this.deploymentError.set("");
     this.api
       .updateGenerationDeployment(site.id, {
+        publishSlug: this.publishSlugDraft(),
         customDomain: this.customDomainDraft(),
         hostingProvider: this.hostingProviderDraft()
       })
       .subscribe({
         next: ({ deployment }) => {
           this.deployment.set(deployment);
+          this.publishSlugDraft.set(deployment.publishSlug);
           this.customDomainDraft.set(deployment.customDomain ?? "");
           this.hostingProviderDraft.set(deployment.hostingProvider);
           this.deploymentLoading.set(false);
@@ -971,6 +988,10 @@ export class AppComponent {
       this.connectDomainError.set("Enter a domain name.");
       return;
     }
+    if (!/^([a-z0-9-]+\.)+[a-z]{2,}$/i.test(domain.replace(/^https?:\/\//, "").replace(/\/.*$/, ""))) {
+      this.connectDomainError.set("Enter a full domain, like example.com.");
+      return;
+    }
     if (!generation) {
       this.connectDomainError.set("Publish a website first.");
       return;
@@ -979,10 +1000,13 @@ export class AppComponent {
     this.connectDomainError.set("");
     this.connectDomainResult.set(null);
     this.api.connectExistingDomain(generation.id, domain).subscribe({
-      next: ({ cname, domain: connectedDomain, deployment }) => {
-        this.connectDomainResult.set({ cname, domain: connectedDomain });
+      next: ({ cname, dnsName, domain: connectedDomain, deployment }) => {
+        this.connectDomainResult.set({ cname, dnsName, domain: connectedDomain });
         if (deployment) {
           this.deployment.set(deployment);
+          this.publishSlugDraft.set(deployment.publishSlug);
+          this.customDomainDraft.set(deployment.customDomain ?? "");
+          this.hostingProviderDraft.set(deployment.hostingProvider);
           this.loadGenerations();
         }
         this.connectDomainLoading.set(false);
@@ -1017,33 +1041,24 @@ export class AppComponent {
   }
 
   protected buyDomain(suggestion: DomainSuggestion) {
-    const generation = this.domainTargetGeneration();
-    if (!generation) {
-      this.domainError.set("Save a website before buying a domain.");
-      return;
-    }
     if (!suggestion.available) {
       this.domainError.set(`${suggestion.domain} is not available.`);
       return;
     }
-    this.domainCheckoutLoading.set(true);
     this.domainError.set("");
-    this.api
-      .createDomainCheckout({
-        domain: suggestion.domain,
-        generationId: generation.id,
-        years: this.domainYears(),
-        autoRenew: this.domainAutoRenew()
-      })
-      .subscribe({
-        next: ({ url }) => {
-          window.location.assign(url);
-        },
-        error: (err: { error?: { message?: string } }) => {
-          this.domainError.set(err.error?.message ?? "Could not start domain checkout.");
-          this.domainCheckoutLoading.set(false);
-        }
-      });
+    this.pendingDomainRedirect.set(suggestion);
+  }
+
+  protected cancelDomainRedirect() {
+    this.pendingDomainRedirect.set(null);
+  }
+
+  protected continueDomainRedirect() {
+    const suggestion = this.pendingDomainRedirect();
+    if (!suggestion) return;
+    const url = `https://domains.cloudflare.com/?domain=${encodeURIComponent(suggestion.domain)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+    this.pendingDomainRedirect.set(null);
   }
 
   protected buyCredits(packageId: string) {

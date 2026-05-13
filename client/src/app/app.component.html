@@ -638,6 +638,25 @@
               </button>
             </div>
 
+            <div class="publish-slug-row" *ngIf="deployment()">
+              <label>
+                <span>Default site name</span>
+                <div class="publish-slug-input">
+                  <input
+                    type="text"
+                    [value]="publishSlugDraft()"
+                    (input)="publishSlugDraft.set($any($event.target).value)"
+                    [disabled]="deploymentLoading()"
+                    placeholder="business-name"
+                  >
+                  <small>.localhost</small>
+                </div>
+              </label>
+              <button type="button" class="btn-connect-domain" (click)="updateDeploymentSettings()" [disabled]="deploymentLoading()">
+                {{ deploymentLoading() ? 'Updating…' : 'Update link' }}
+              </button>
+            </div>
+
             <!-- Custom domain -->
             <div class="custom-domain-row" *ngIf="deployment()?.customDomainUrl; else noDomain">
               <span class="custom-domain-label">Custom domain</span>
@@ -835,10 +854,10 @@
 	                <span>Type</span>
 	                <code>CNAME</code>
 	              </div>
-	              <div class="dns-field">
-	                <span>Name</span>
-	                <code>@</code>
-	              </div>
+		              <div class="dns-field">
+		                <span>Name</span>
+		                <code>{{ connectDomainResult()!.dnsName }}</code>
+		              </div>
 	              <div class="dns-field">
 	                <span>Value</span>
 	                <code>{{ connectDomainResult()!.cname }}</code>
@@ -920,15 +939,41 @@
 	            type="button"
 	            class="btn-primary btn-sm"
 	            (click)="buyDomain(suggestion)"
-	            [disabled]="!suggestion.available || domainCheckoutLoading()"
+	            [disabled]="!suggestion.available"
 	          >
-	            {{ domainCheckoutLoading() ? '…' : 'Buy' }}
+	            Buy
 	          </button>
 	        </article>
 	      </div>
 
 	      <div class="domain-modal-empty" *ngIf="!domainSuggestions().length && !domainSearchLoading()">
 	        <p>Search for your perfect domain above, or pick a suggestion.</p>
+	      </div>
+	    </div>
+
+	    <div class="domain-modal-backdrop" *ngIf="pendingDomainRedirect()" (click)="cancelDomainRedirect()"></div>
+	    <div class="domain-confirm-modal" *ngIf="pendingDomainRedirect() as pending">
+	      <div class="domain-modal-head">
+	        <h2>Continue to Cloudflare</h2>
+	        <button type="button" class="btn-modal-close" (click)="cancelDomainRedirect()">
+	          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+	        </button>
+	      </div>
+	      <div class="domain-confirm-copy">
+	        <p>
+	          You will be redirected to Cloudflare Domains in a new tab to purchase
+	          <strong>{{ pending.domain }}</strong>.
+	        </p>
+	        <p>
+	          You are not required to buy this domain from Cloudflare. You can use any domain registrar you prefer and connect the domain to Pixora later.
+	        </p>
+	        <p>
+	          Domain availability and pricing can change over time and may differ from the estimate shown here. Pixora is not responsible for domain price changes, registrar fees, taxes, renewals, or availability after you leave Pixora.
+	        </p>
+	      </div>
+	      <div class="domain-confirm-actions">
+	        <button type="button" class="btn-ghost" (click)="cancelDomainRedirect()">Cancel</button>
+	        <button type="button" class="btn-primary" (click)="continueDomainRedirect()">I understand, continue</button>
 	      </div>
 	    </div>
 

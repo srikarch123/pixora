@@ -1773,6 +1773,67 @@ textarea {
 
 .btn-copy:hover { background: rgba(74,250,124,0.12); }
 
+.publish-slug-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r);
+  background: var(--c-surface-2);
+}
+
+.publish-slug-row label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.publish-slug-row label > span {
+  color: var(--c-text-2);
+  font-size: 0.7rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.publish-slug-input {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--c-border-2);
+  border-radius: var(--r-sm);
+  background: var(--c-bg);
+}
+
+.publish-slug-input input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--c-text);
+  font-size: 0.85rem;
+  font-weight: 750;
+}
+
+.publish-slug-input small {
+  padding-right: 10px;
+  color: var(--c-text-3);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.publish-slug-row .btn-connect-domain {
+  width: auto;
+  min-height: 38px;
+  border-style: solid;
+  white-space: nowrap;
+}
+
 .custom-domain-row {
   display: flex;
   align-items: center;
@@ -2584,6 +2645,47 @@ textarea {
   flex-direction: column;
   gap: 20px;
   box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+}
+
+.domain-confirm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1002;
+  width: min(520px, calc(100vw - 32px));
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--r-xl);
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.72);
+}
+
+.domain-confirm-copy {
+  display: grid;
+  gap: 12px;
+  color: var(--c-text-2);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.domain-confirm-copy p {
+  margin: 0;
+}
+
+.domain-confirm-copy strong {
+  color: var(--c-text);
+  font-weight: 800;
+}
+
+.domain-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .domain-modal-head {

@@ -74,7 +74,7 @@ export class PixoraApiService {
   }
 
   connectExistingDomain(generationId: string, domain: string) {
-    return this.http.post<{ connected: boolean; domain: string; pagesUrl: string; cname: string; deployment: GenerationDeployment | null }>(
+    return this.http.post<{ connected: boolean; domain: string; pagesUrl: string; cname: string; dnsName: string; deployment: GenerationDeployment | null }>(
       `/api/generations/${generationId}/connect-domain`,
       { domain },
       { headers: this.authHeaders }
@@ -104,7 +104,7 @@ export class PixoraApiService {
   }
 
   saveGeneration(intake: BusinessIntake, site: GeneratedSite) {
-    return this.http.post<{ saved: boolean; id: string; pagesUrl: string | null; deployment: GenerationDeployment }>(
+    return this.http.post<{ saved: boolean; id: string; pagesUrl: string | null; deployment: GenerationDeployment | null }>(
       "/api/generations",
       { intake, site },
       { headers: this.authHeaders }
@@ -112,7 +112,7 @@ export class PixoraApiService {
   }
 
   publishGeneration(id: string) {
-    return this.http.post<{ pagesUrl: string; deployment: GenerationDeployment }>(
+    return this.http.post<{ pagesUrl: string | null; deployment: GenerationDeployment | null }>(
       `/api/generations/${id}/publish`,
       {},
       { headers: this.authHeaders }
