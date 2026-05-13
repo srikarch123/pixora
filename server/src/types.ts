@@ -119,6 +119,10 @@ export interface GenerationSummary {
   businessType: BusinessType;
   templateId: string;
   createdAt: string;
+  publishSlug: string;
+  customDomain: string | null;
+  hostingProvider: "pixora-local" | "vercel" | "netlify" | "cloudflare-pages" | "self-hosted";
+  deploymentUpdatedAt: string | null;
 }
 
 export interface AdminGenerationSummary extends GenerationSummary {

@@ -65,12 +65,58 @@ export class PixoraApiService {
     );
   }
 
+  searchDomains(query: string) {
+    return this.http.post<{ suggestions: DomainSuggestion[] }>("/api/domains/search", { query }, { headers: this.authHeaders });
+  }
+
+  createDomainCheckout(input: { domain: string; generationId: string; years: number; autoRenew: boolean }) {
+    return this.http.post<{ url: string }>("/api/domains/checkout", input, { headers: this.authHeaders });
+  }
+
+  connectExistingDomain(generationId: string, domain: string) {
+    return this.http.post<{ connected: boolean; domain: string; pagesUrl: string; cname: string; deployment: GenerationDeployment | null }>(
+      `/api/generations/${generationId}/connect-domain`,
+      { domain },
+      { headers: this.authHeaders }
+    );
+  }
+
+  syncDomainCheckout(sessionId: string) {
+    return this.http.post<{ deployed: boolean; pagesUrl?: string; domain?: string; deployment: GenerationDeployment | null }>(
+      "/api/domains/checkout/sync",
+      { sessionId },
+      { headers: this.authHeaders }
+    );
+  }
+
   generate(intake: BusinessIntake) {
     return this.http.post<GeneratedSite>("/api/generate", intake, { headers: this.authHeaders });
   }
 
+  generateFromFile(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return this.http.post<GeneratedSite & { extractedIntake: BusinessIntake }>(
+      "/api/generate-from-file",
+      formData,
+      { headers: this.authHeaders }
+    );
+  }
+
   saveGeneration(intake: BusinessIntake, site: GeneratedSite) {
-    return this.http.post<{ saved: boolean; id: string }>("/api/generations", { intake, site }, { headers: this.authHeaders });
+    return this.http.post<{ saved: boolean; id: string; pagesUrl: string | null; deployment: GenerationDeployment }>(
+      "/api/generations",
+      { intake, site },
+      { headers: this.authHeaders }
+    );
+  }
+
+  publishGeneration(id: string) {
+    return this.http.post<{ pagesUrl: string; deployment: GenerationDeployment }>(
+      `/api/generations/${id}/publish`,
+      {},
+      { headers: this.authHeaders }
+    );
   }
 
   listGenerations() {
@@ -78,7 +124,19 @@ export class PixoraApiService {
   }
 
   getGeneration(id: string) {
-    return this.http.get<GeneratedSite>(`/api/generations/${id}`, { headers: this.authHeaders });
+    return this.http.get<{ site: GeneratedSite; intake: BusinessIntake; deployment: GenerationDeployment | null }>(
+      `/api/generations/${id}`,
+      { headers: this.authHeaders }
+    );
+  }
+
+  updateGenerationDeployment(
+    id: string,
+    input: { publishSlug?: string; customDomain?: string; hostingProvider?: GenerationSummary["hostingProvider"] }
+  ) {
+    return this.http.patch<{ deployment: GenerationDeployment }>(`/api/generations/${id}/deployment`, input, {
+      headers: this.authHeaders
+    });
   }
 
   deleteGeneration(id: string) {
@@ -110,4 +168,22 @@ export class PixoraApiService {
   deleteAdminGeneration(id: string) {
     return this.http.delete<void>(`/api/admin/generations/${id}`, { headers: this.authHeaders });
   }
+}
+
+export interface GenerationDeployment extends GenerationSummary {
+  publicUrl: string;
+  customDomainUrl: string | null;
+  hostActionLabel: string;
+  hostActionUrl: string;
+}
+
+export interface DomainSuggestion {
+  domain: string;
+  available: boolean;
+  premium: boolean;
+  priceCents: number;
+  renewalPriceCents: number;
+  currency: "usd";
+  registrar: "cloudflare";
+  reason?: string;
 }

@@ -94,6 +94,24 @@ stripe listen --forward-to localhost:3000/api/billing/webhook
 
 Credits are added idempotently from Stripe's paid Checkout session. The app reconciles credits when the customer returns from Checkout, and the webhook should still be configured in local development and production so credits are applied even if the customer closes the browser before returning to Pixora.
 
+## Publishing Websites
+
+Saved websites are automatically assigned a public slug and can be opened from the deployment panel. In local development, a saved site is served from:
+
+```bash
+http://localhost:3000/website-name
+```
+
+For production, set the origin used for generated public links:
+
+```bash
+PUBLIC_SITE_ORIGIN=https://your-pixora-host.com
+```
+
+Customers can also attach a domain they purchased elsewhere. Add the domain and selected host in the deployment panel, then Pixora opens the selected provider's deploy flow directly.
+
+The Domains page mirrors a Lovable-style purchase flow: search domain ideas, compare availability and first-year pricing, choose a saved website, and continue to Stripe checkout. The current registrar is a deterministic mock provider so the UI and payment path can be built locally; replace `server/src/domains/domainService.ts` with a real registrar API adapter when IONOS, Namecheap, GoDaddy, or Cloudflare Registrar credentials are available.
+
 For regular signup verification emails, configure SMTP:
 
 ```bash

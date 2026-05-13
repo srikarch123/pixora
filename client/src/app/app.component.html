@@ -17,11 +17,14 @@
 
 <!-- ═══════════════════════════════════════════════════════════ SESSION RESTORE -->
 <div class="splash" *ngIf="authLoading() && !user()">
-  <div class="splash-logo">
-    <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
-      <rect width="36" height="36" rx="10" fill="#4afa7c"/>
-      <path d="M9 27 L18 9 L27 27 Z" fill="#050d08"/>
-    </svg>
+  <div class="splash-inner">
+    <div class="splash-logo">
+      <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+        <rect width="36" height="36" rx="10" fill="#4afa7c"/>
+        <path d="M9 27 L18 9 L27 27 Z" fill="#050d08"/>
+      </svg>
+    </div>
+    <span class="splash-name">Pixora</span>
   </div>
 </div>
 
@@ -148,6 +151,13 @@
 	        Library
 	        <span class="nav-badge" *ngIf="generations().length">{{ generations().length }}</span>
 	      </button>
+	      <button type="button" class="nav-item" [class.active]="activeView() === 'domains'" (click)="setView('domains')">
+	        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
+	          <circle cx="10" cy="10" r="7" stroke="currentColor" stroke-width="1.4"/>
+	          <path d="M3.5 10h13M10 3c2 2 3 4.3 3 7s-1 5-3 7M10 3c-2 2-3 4.3-3 7s1 5 3 7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+	        </svg>
+	        Domains
+	      </button>
 	      <button type="button" class="nav-item" [class.active]="activeView() === 'admin'" (click)="setView('admin')" *ngIf="hasAdminAccess()">
 	        <svg viewBox="0 0 20 20" fill="none" width="16" height="16">
 	          <path d="M10 2l6 2.5v5.2c0 3.8-2.4 6.8-6 8.3-3.6-1.5-6-4.5-6-8.3V4.5L10 2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
@@ -242,6 +252,12 @@
                 <span class="tag dim">{{ g.templateId }}</span>
               </div>
               <strong class="site-name">{{ g.businessName }}</strong>
+              <a class="site-url-link" [href]="g.publicUrl" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">
+                {{ g.publicUrl }}
+                <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+                  <path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </a>
               <time class="site-date">{{ g.createdAt | date:'MMM d, y' }}</time>
             </div>
             <button type="button" class="btn-delete-card" (click)="deleteGeneration(g.id, $event)" title="Delete website">
@@ -276,11 +292,26 @@
             <p class="eyebrow">Generator</p>
             <h2>Website brief</h2>
           </div>
-          <button type="button" class="btn-primary btn-generate-top" (click)="generateSite()" [disabled]="loading()">
-            <span *ngIf="!loading()">Generate</span>
-            <span *ngIf="loading()" class="spinner-label"><span class="spinner"></span></span>
-          </button>
+          <div class="form-head-actions">
+            <button type="button" class="btn-sample" (click)="loadSampleData()" [disabled]="loading()" title="Fill form with a sample restaurant">
+              <svg viewBox="0 0 16 16" fill="none" width="12" height="12">
+                <path d="M3 8h10M8 3v10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Load sample
+            </button>
+            <button type="button" class="btn-primary btn-generate-top" (click)="generateSite()" [disabled]="loading()">
+              <span *ngIf="!loading()">Generate</span>
+              <span *ngIf="loading()" class="spinner-label"><span class="spinner"></span></span>
+            </button>
+          </div>
         </div>
+
+        <!-- Mode tabs -->
+        <div class="generate-mode-tabs">
+          <button type="button" [class.active]="generateMode() === 'form'" (click)="setGenerateMode('form')">Fill manually</button>
+          <button type="button" [class.active]="generateMode() === 'upload'" (click)="setGenerateMode('upload')">Upload card / invoice</button>
+        </div>
+
 
 	        <p class="form-error" *ngIf="error()">{{ error() }}</p>
 	        <div class="credit-notice" [class.empty]="!canGenerateWithCredits()" *ngIf="!user()?.isAdmin">
@@ -311,7 +342,55 @@
 	        </div>
 	        <p class="form-error" *ngIf="billingError()">{{ billingError() }}</p>
 
-	        <form [formGroup]="form" (ngSubmit)="generateSite()">
+
+        <!-- Upload mode -->
+        <div class="upload-zone-wrapper" *ngIf="generateMode() === 'upload'">
+          <label
+            class="upload-zone"
+            [class.dragover]="uploadDragOver()"
+            [class.has-file]="uploadFile()"
+            (dragover)="$event.preventDefault(); uploadDragOver.set(true)"
+            (dragleave)="uploadDragOver.set(false)"
+            (drop)="onUploadDrop($event)"
+          >
+            <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" (change)="onUploadFileChange($event)" style="display:none">
+            <div class="upload-zone-icon">
+              <svg viewBox="0 0 40 40" fill="none" width="40" height="40">
+                <rect x="4" y="8" width="32" height="28" rx="3" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M4 16h32" stroke="currentColor" stroke-width="1.4"/>
+                <path d="M14 8V4M20 8V4M26 8V4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+                <path d="M12 26l5-5 4 4 3-3 4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <p class="upload-zone-text" *ngIf="!uploadFile()">
+              <strong>Drop a business card or invoice here</strong><br>
+              or click to select &middot; JPG, PNG, WebP, PDF &middot; max 10 MB
+            </p>
+            <p class="upload-zone-text" *ngIf="uploadFile()">
+              <strong>{{ uploadFile()!.name }}</strong><br>
+              <span>{{ (uploadFile()!.size / 1024).toFixed(0) }} KB &middot; Click to change</span>
+            </p>
+          </label>
+          <div class="upload-hints">
+            <p>The AI extracts business info from the file and generates a website directly. Always review the result.</p>
+            <ul>
+              <li><strong>Business card</strong> &rarr; contact details, brand colors, services inferred from industry</li>
+              <li><strong>Invoice</strong> &rarr; line items become the offerings list</li>
+            </ul>
+          </div>
+          <button
+            type="button"
+            class="btn-primary btn-upload-generate"
+            (click)="generateFromFile()"
+            [disabled]="loading() || !uploadFile()"
+          >
+            <span class="spinner" *ngIf="loading()"></span>
+            <span *ngIf="!loading()">Generate from file</span>
+            <span *ngIf="loading()">Extracting &amp; generating…</span>
+          </button>
+        </div>
+
+	        <form [formGroup]="form" (ngSubmit)="generateSite()" *ngIf="generateMode() === 'form'">
           <div class="form-section">
             <div class="form-section-label">
               <span class="section-num">01</span>
@@ -421,13 +500,29 @@
             <span class="dot dot-green"></span>
           </div>
           <div class="browser-url">
-            {{ generatedSite() ? (generatedSite()?.templateId + ' · ' + (form.value.businessName || 'preview')) : 'Ready to generate' }}
+            {{ generatedSite() ? (isEditMode() ? 'Editing · ' + (form.value.businessName || 'preview') : generatedSite()?.templateId + ' · ' + (form.value.businessName || 'preview')) : 'Ready to generate' }}
           </div>
+          <button
+            type="button"
+            class="edit-btn"
+            [class.active]="isEditMode()"
+            (click)="toggleEditMode()"
+            *ngIf="generatedSite()"
+            [title]="isEditMode() ? 'Save edits and exit edit mode' : 'Edit text directly in the preview'"
+          >
+            <svg *ngIf="!isEditMode()" viewBox="0 0 16 16" fill="none" width="12" height="12">
+              <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+            </svg>
+            <svg *ngIf="isEditMode()" viewBox="0 0 16 16" fill="none" width="12" height="12">
+              <path d="M3 8l4 4 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            {{ isEditMode() ? 'Done' : 'Edit' }}
+          </button>
           <button
             type="button"
             class="maximize-btn"
             (click)="isMaximized.set(true)"
-            *ngIf="generatedSite()"
+            *ngIf="generatedSite() && !isEditMode()"
             title="Fullscreen preview"
           >
             <svg viewBox="0 0 16 16" fill="none" width="14" height="14">
@@ -437,8 +532,8 @@
         </div>
 
         <!-- Iframe / empty state -->
-        <div class="preview-viewport" *ngIf="previewSource(); else noPreview">
-          <iframe title="Website preview" [src]="previewSource()"></iframe>
+        <div class="preview-viewport" *ngIf="previewHtmlStr(); else noPreview">
+          <iframe #previewIframe title="Website preview"></iframe>
         </div>
 
         <ng-template #noPreview>
@@ -454,8 +549,20 @@
               <p>Fill in the brief and generate a site.</p>
             </div>
             <div *ngIf="loading()" class="preview-generating">
-              <div class="gen-pulse"></div>
-              <p>Building your website…</p>
+              <div class="gen-logo-anim">
+                <svg viewBox="0 0 36 36" fill="none" width="36" height="36">
+                  <rect width="36" height="36" rx="10" fill="rgba(74,250,124,0.12)"/>
+                  <path d="M9 27 L18 9 L27 27 Z" fill="#4afa7c"/>
+                </svg>
+              </div>
+              <p class="gen-headline">Building your website…</p>
+              <div class="gen-progress-bar"><div class="gen-progress-fill"></div></div>
+              <div class="gen-steps">
+                <div class="gen-step gen-s1"><span class="gen-dot"></span>Analyzing brief</div>
+                <div class="gen-step gen-s2"><span class="gen-dot"></span>Picking template</div>
+                <div class="gen-step gen-s3"><span class="gen-dot"></span>Writing copy</div>
+                <div class="gen-step gen-s4"><span class="gen-dot"></span>Styling &amp; assembling</div>
+              </div>
             </div>
           </div>
         </ng-template>
@@ -468,22 +575,99 @@
               {{ site.generationSource?.fallback ? 'Template copy' : 'AI generated' }}
             </span>
           </div>
-          <button
-            type="button"
-            class="btn-save"
-            (click)="saveCurrentSite()"
-            [disabled]="isSaved() || saving()"
-            [class.saved]="isSaved()"
-          >
-            <svg viewBox="0 0 16 16" fill="none" width="13" height="13" *ngIf="!isSaved()">
-              <path d="M13 7H9V3H7v4H3l5 5 5-5z" fill="currentColor"/>
-              <path d="M2 14h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-            </svg>
-            <svg viewBox="0 0 16 16" fill="none" width="13" height="13" *ngIf="isSaved()">
-              <path d="M3 8l4 4 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            {{ saving() ? 'Saving…' : isSaved() ? 'Saved' : 'Save to library' }}
-          </button>
+          <div class="action-right">
+            <!-- Delete (only for saved library sites) -->
+            <button
+              type="button"
+              class="btn-action btn-delete-site"
+              (click)="deleteCurrentSite()"
+              *ngIf="isSaved()"
+              title="Delete from library"
+            >
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+                <path d="M3 4h10M6 4V2h4v2M5 4l.5 9h5L11 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <!-- Download -->
+            <button
+              type="button"
+              class="btn-action"
+              (click)="downloadSite()"
+              title="Download as HTML"
+            >
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+                <path d="M8 2v8M5 7l3 3 3-3M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              Download
+            </button>
+            <!-- Publish -->
+            <button
+              type="button"
+              class="btn-publish"
+              (click)="publishSite()"
+              [disabled]="publishLoading()"
+              [class.published]="isSaved() && pagesUrl()"
+            >
+              <svg viewBox="0 0 16 16" fill="none" width="13" height="13" *ngIf="!publishLoading()">
+                <path d="M8 2v8M5 7l3 3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M2 12v1a1 1 0 001 1h10a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span class="spinner" *ngIf="publishLoading()"></span>
+              {{ publishLoading() ? 'Publishing…' : isSaved() ? 'Re-publish' : 'Publish' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="deployment-card" *ngIf="generatedSite()">
+
+          <!-- Live URL block — shown once deployed to Pages -->
+          <ng-container *ngIf="pagesUrl(); else notPublished">
+            <div class="live-header">
+              <span class="live-badge">
+                <span class="live-dot"></span>
+                Live
+              </span>
+              <a [href]="pagesUrl()!" target="_blank" rel="noopener noreferrer" class="btn-action">
+                Open ↗
+              </a>
+            </div>
+            <div class="live-url-row">
+              <span class="live-url-text">{{ pagesUrl() }}</span>
+              <button type="button" class="btn-copy" (click)="copyToClipboard(pagesUrl()!)">
+                {{ copied() ? '✓ Copied' : 'Copy' }}
+              </button>
+            </div>
+
+            <!-- Custom domain -->
+            <div class="custom-domain-row" *ngIf="deployment()?.customDomainUrl; else noDomain">
+              <span class="custom-domain-label">Custom domain</span>
+              <a [href]="deployment()!.customDomainUrl!" target="_blank" rel="noopener noreferrer" class="custom-domain-url">
+                {{ deployment()!.customDomain }}
+              </a>
+            </div>
+            <ng-template #noDomain>
+              <button type="button" class="btn-connect-domain" (click)="setView('domains')" [disabled]="!isSaved()">
+                <svg viewBox="0 0 16 16" fill="none" width="13" height="13">
+                  <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.4"/>
+                  <path d="M2.5 8h11M8 2.5c1.5 1.5 2.5 3.5 2.5 5.5s-1 4-2.5 5.5M8 2.5C6.5 4 5.5 6 5.5 8s1 4 2.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+                </svg>
+                Connect a custom domain
+              </button>
+            </ng-template>
+          </ng-container>
+
+          <!-- Not yet published -->
+          <ng-template #notPublished>
+            <div class="not-published">
+              <svg viewBox="0 0 20 20" fill="none" width="20" height="20">
+                <path d="M10 3v10M6 9l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M3 15v1a1 1 0 001 1h12a1 1 0 001-1v-1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <p>Click <strong>Publish</strong> to get a live URL instantly.</p>
+            </div>
+          </ng-template>
+
+          <p class="form-error" *ngIf="deploymentError()">{{ deploymentError() }}</p>
         </div>
 
       </div>
@@ -512,6 +696,12 @@
               <span class="tag dim">{{ g.templateId }}</span>
             </div>
             <strong class="site-name">{{ g.businessName }}</strong>
+            <a class="site-url-link" [href]="g.publicUrl" target="_blank" rel="noopener noreferrer" (click)="$event.stopPropagation()">
+              {{ g.publicUrl }}
+              <svg viewBox="0 0 12 12" fill="none" width="10" height="10">
+                <path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
             <time class="site-date">{{ g.createdAt | date:'MMM d, y · h:mm a' }}</time>
           </div>
           <button type="button" class="btn-delete-card" (click)="deleteGeneration(g.id, $event)" title="Delete website">
@@ -532,6 +722,213 @@
         <strong>No saved websites yet</strong>
         <p>Generate a site and click "Save to library" to keep it here.</p>
 	        <button type="button" class="btn-primary" (click)="setView('generator')">Create first website</button>
+	      </div>
+	    </div>
+
+	    <!-- ════ DOMAINS VIEW ════ -->
+	    <div class="view" *ngIf="activeView() === 'domains'">
+	      <div class="page-head">
+	        <div class="domain-page-head-left">
+	          <p class="eyebrow">Domains</p>
+	          <h1>Connect a domain</h1>
+	        </div>
+	        <div class="domain-website-selector" *ngIf="generations().length">
+	          <span class="selector-label">Website</span>
+	          <select
+	            [value]="selectedDomainGenerationId()"
+	            (change)="selectedDomainGenerationId.set($any($event.target).value)"
+	          >
+	            <option value="">Latest saved website</option>
+	            <option *ngFor="let g of generations()" [value]="g.id">{{ g.businessName }}</option>
+	          </select>
+	        </div>
+	      </div>
+
+	      <!-- Live URL row -->
+	      <div class="domain-live-row" *ngIf="pagesUrlForTargetGen()">
+	        <div class="domain-live-badge">
+	          <span class="live-dot"></span>
+	          Live
+	        </div>
+	        <a class="domain-live-link" [href]="pagesUrlForTargetGen()" target="_blank" rel="noopener">{{ pagesUrlForTargetGen() }}</a>
+	      </div>
+
+	      <!-- No website published yet -->
+	      <div class="domain-no-publish" *ngIf="!domainTargetGeneration() || !pagesUrlForTargetGen()">
+	        <p *ngIf="!domainTargetGeneration()">Save and publish a website first to manage domains.</p>
+	        <p *ngIf="domainTargetGeneration() && !pagesUrlForTargetGen()">
+	          This website hasn't been published yet. Publish it from the Preview tab to get a live URL.
+	        </p>
+	      </div>
+
+	      <div class="domain-sections">
+	        <!-- Buy a new domain -->
+	        <div class="domain-section-card">
+	          <div class="domain-section-header">
+	            <div class="domain-section-icon">🌐</div>
+	            <div>
+	              <h3>Buy a new domain</h3>
+	              <p>Register a brand-new domain and attach it to your site instantly.</p>
+	            </div>
+	          </div>
+
+	          <div class="domain-chips" *ngIf="domainSuggestionChips().length">
+	            <button
+	              *ngFor="let chip of domainSuggestionChips()"
+	              type="button"
+	              class="domain-chip"
+	              (click)="selectDomainChip(chip)"
+	              [disabled]="!domainTargetGeneration()"
+	            >{{ chip }}</button>
+	          </div>
+
+	          <button
+	            type="button"
+	            class="btn-buy-domain"
+	            (click)="openBuyModal()"
+	            [disabled]="!domainTargetGeneration()"
+	          >
+	            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+	            Buy a domain
+	          </button>
+	        </div>
+
+	        <!-- Connect existing domain -->
+	        <div class="domain-section-card">
+	          <div class="domain-section-header">
+	            <div class="domain-section-icon">🔗</div>
+	            <div>
+	              <h3>Connect existing domain</h3>
+	              <p>Already own a domain? Point it to your Pixora site via CNAME.</p>
+	            </div>
+	          </div>
+
+	          <div class="domain-connect-row">
+	            <input
+	              type="text"
+	              class="domain-connect-input"
+	              placeholder="yourdomain.com"
+	              [value]="connectDomainInput()"
+	              (input)="connectDomainInput.set($any($event.target).value)"
+	              (keydown.enter)="connectDomain()"
+	              [disabled]="connectDomainLoading() || !domainTargetGeneration()"
+	            >
+	            <button
+	              type="button"
+	              class="btn-primary"
+	              (click)="connectDomain()"
+	              [disabled]="connectDomainLoading() || !connectDomainInput().trim() || !domainTargetGeneration()"
+	            >
+	              {{ connectDomainLoading() ? 'Connecting…' : 'Connect' }}
+	            </button>
+	          </div>
+	          <p class="form-error" *ngIf="connectDomainError()">{{ connectDomainError() }}</p>
+
+	          <div class="dns-instructions" *ngIf="connectDomainResult()">
+	            <div class="dns-success-row">
+	              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l4 4 6-6" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+	              <strong>{{ connectDomainResult()!.domain }}</strong> connected to your site.
+	            </div>
+	            <p class="dns-note">Add this CNAME record in your DNS provider to finish routing:</p>
+	            <div class="dns-record">
+	              <div class="dns-field">
+	                <span>Type</span>
+	                <code>CNAME</code>
+	              </div>
+	              <div class="dns-field">
+	                <span>Name</span>
+	                <code>@</code>
+	              </div>
+	              <div class="dns-field">
+	                <span>Value</span>
+	                <code>{{ connectDomainResult()!.cname }}</code>
+	              </div>
+	              <div class="dns-field">
+	                <span>TTL</span>
+	                <code>Auto</code>
+	              </div>
+	            </div>
+	          </div>
+	        </div>
+	      </div>
+	    </div>
+
+	    <!-- ════ BUY DOMAIN MODAL ════ -->
+	    <div class="domain-modal-backdrop" *ngIf="showBuyDomainModal()" (click)="closeBuyModal()"></div>
+	    <div class="domain-modal" *ngIf="showBuyDomainModal()">
+	      <div class="domain-modal-head">
+	        <h2>Buy a domain</h2>
+	        <button type="button" class="btn-modal-close" (click)="closeBuyModal()">
+	          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+	        </button>
+	      </div>
+
+	      <div class="domain-modal-chips" *ngIf="domainSuggestionChips().length">
+	        <button
+	          *ngFor="let chip of domainSuggestionChips()"
+	          type="button"
+	          class="domain-chip"
+	          (click)="domainQuery.set(chip); searchDomainOptions()"
+	        >{{ chip }}</button>
+	      </div>
+
+	      <div class="domain-modal-search">
+	        <div class="domain-modal-term">
+	          <label class="field-inline">
+	            <span>Term</span>
+	            <select [value]="domainYears()" (change)="domainYears.set(+$any($event.target).value)">
+	              <option [value]="1">1 yr</option>
+	              <option [value]="2">2 yr</option>
+	              <option [value]="3">3 yr</option>
+	              <option [value]="5">5 yr</option>
+	            </select>
+	          </label>
+	          <label class="field-inline renew-inline">
+	            <input type="checkbox" [checked]="domainAutoRenew()" (change)="domainAutoRenew.set($any($event.target).checked)">
+	            <span>Auto-renew</span>
+	          </label>
+	        </div>
+	        <div class="domain-search-row">
+	          <input
+	            type="search"
+	            placeholder="Search for a domain…"
+	            [value]="domainQuery()"
+	            (input)="domainQuery.set($any($event.target).value)"
+	            (keydown.enter)="searchDomainOptions($event)"
+	          >
+	          <button type="button" class="btn-primary" (click)="searchDomainOptions()" [disabled]="domainSearchLoading()">
+	            {{ domainSearchLoading() ? 'Searching…' : 'Search' }}
+	          </button>
+	        </div>
+	        <p class="form-error" *ngIf="domainError()">{{ domainError() }}</p>
+	      </div>
+
+	      <div class="domain-modal-results" *ngIf="domainSuggestions().length">
+	        <article class="domain-result" *ngFor="let suggestion of domainSuggestions()" [class.unavailable]="!suggestion.available">
+	          <div class="domain-name">
+	            <strong>{{ suggestion.domain }}</strong>
+	            <span class="badge-taken" *ngIf="!suggestion.available">Taken</span>
+	            <span class="badge-available" *ngIf="suggestion.available && !suggestion.premium">Available</span>
+	            <span class="badge-premium" *ngIf="suggestion.premium">Premium</span>
+	            <small *ngIf="suggestion.reason">{{ suggestion.reason.replaceAll('_', ' ') }}</small>
+	          </div>
+	          <div class="domain-price">
+	            <strong>{{ formatDomainPrice(suggestion) }}</strong>
+	            <small>Renews {{ formatRenewalPrice(suggestion) }}/yr</small>
+	          </div>
+	          <button
+	            type="button"
+	            class="btn-primary btn-sm"
+	            (click)="buyDomain(suggestion)"
+	            [disabled]="!suggestion.available || domainCheckoutLoading()"
+	          >
+	            {{ domainCheckoutLoading() ? '…' : 'Buy' }}
+	          </button>
+	        </article>
+	      </div>
+
+	      <div class="domain-modal-empty" *ngIf="!domainSuggestions().length && !domainSearchLoading()">
+	        <p>Search for your perfect domain above, or pick a suggestion.</p>
 	      </div>
 	    </div>
 
@@ -680,14 +1077,16 @@
 	    </div>
 
 	    <ng-template #adminLoadingTpl>
-	      <div class="admin-loading">Loading admin data…</div>
+	      <div class="admin-skeleton-list">
+	        <div class="admin-row-skeleton" *ngFor="let i of [1,2,3,4]"></div>
+	      </div>
 	    </ng-template>
 
 	  </main>
 	</div>
 
 <!-- ═══════════════════════════════════════════════════════════ FULLSCREEN OVERLAY -->
-<div class="maximize-overlay" *ngIf="isMaximized() && previewSource()">
+<div class="maximize-overlay" *ngIf="isMaximized() && previewSrcdoc()">
   <div class="maximize-bar">
     <div class="browser-dots">
       <span class="dot dot-red"></span>
@@ -702,5 +1101,5 @@
       Close
     </button>
   </div>
-  <iframe class="maximize-iframe" title="Website fullscreen preview" [src]="previewSource()"></iframe>
+  <iframe class="maximize-iframe" title="Website fullscreen preview" [srcdoc]="previewSrcdoc()!"></iframe>
 </div>

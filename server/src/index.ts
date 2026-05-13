@@ -2,9 +2,11 @@ import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypt
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import multer from "multer";
 import { OAuth2Client } from "google-auth-library";
 import Stripe from "stripe";
 import { z } from "zod";
+import { extractIntakeFromFile } from "./ai/extractionService.js";
 import { runGenerationGraph } from "./ai/generationGraph.js";
 import { creditPackages, findCreditPackage } from "./billing/creditPackages.js";
 import {
@@ -25,6 +27,9 @@ import {
   findUserByGoogleId,
   getAdminStats,
   getGeneration,
+  getGenerationSummary,
+  getPublicGenerationByCustomDomain,
+  getPublicGenerationBySlug,
   getUserBySessionTokenHash,
   getUsedTemplateIds,
   getVerificationToken,
@@ -38,10 +43,12 @@ import {
   markUserAdmin,
   saveGeneration,
   setUserCredits,
+  updateGenerationDeployment,
   updateUserAdminFlags,
   WEBSITE_GENERATION_CREDITS
 } from "./db/database.js";
 import { sendVerificationEmail } from "./email/mailer.js";
+import { CloudflareRegistrarError, deployToCloudflarePages, findDomainSuggestion, pagesProjectName, searchDomains } from "./domains/domainService.js";
 import { templates } from "./templates/templates.js";
 import type { BusinessIntake, GeneratedSite, UserAccount } from "./types.js";
 
@@ -49,6 +56,8 @@ initializeDatabase();
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
+const siteDomain = process.env.SITE_DOMAIN ?? "localhost";
+const isLocalDomain = siteDomain === "localhost" || siteDomain.endsWith(".localhost");
 const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:4200";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
@@ -88,10 +97,18 @@ app.post("/api/billing/webhook", express.raw({ type: "application/json" }), (req
   }
 
   if (event.type === "checkout.session.completed") {
-    const result = applyPaidCreditCheckoutSession(event.data.object as Stripe.Checkout.Session);
-    if (!result.ok) {
-      response.status(result.status).json({ message: result.message });
-      return;
+    const session = event.data.object as Stripe.Checkout.Session;
+    if (session.metadata?.type === "domain-registration") {
+      // Fire-and-forget: deploy failure must not return a non-200 to Stripe
+      handleDomainRegistrationSession(session).catch((err) =>
+        console.error("Domain registration webhook error:", err)
+      );
+    } else {
+      const result = applyPaidCreditCheckoutSession(session);
+      if (!result.ok) {
+        response.status(result.status).json({ message: result.message });
+        return;
+      }
     }
   }
 
@@ -155,6 +172,34 @@ const checkoutSchema = z.object({
 
 const checkoutSyncSchema = z.object({
   sessionId: z.string().min(1)
+});
+
+const deploymentSchema = z.object({
+  publishSlug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .regex(/^[a-zA-Z0-9][a-zA-Z0-9 -]*[a-zA-Z0-9]$/, "Use letters, numbers, spaces, or hyphens.")
+    .optional(),
+  customDomain: z
+    .string()
+    .trim()
+    .max(253)
+    .regex(/^$|^(https?:\/\/)?([a-z0-9-]+\.)+[a-z]{2,}(\/.*)?$/i, "Enter a valid domain, like example.com.")
+    .optional(),
+  hostingProvider: z.enum(["pixora-local", "vercel", "netlify", "cloudflare-pages", "self-hosted"]).optional()
+});
+
+const domainSearchSchema = z.object({
+  query: z.string().trim().min(2).max(80)
+});
+
+const domainCheckoutSchema = z.object({
+  domain: z.string().trim().min(4).max(253),
+  generationId: z.string().min(1),
+  years: z.number().int().min(1).max(10),
+  autoRenew: z.boolean()
 });
 
 // ─── Auth helpers ─────────────────────────────────────────────────────────────
@@ -269,6 +314,59 @@ const applyPaidCreditCheckoutSession = (session: Stripe.Checkout.Session, expect
   return { ok: true as const, applied: true, credits: newCredits, message: "Credits applied." };
 };
 
+const handleDomainRegistrationSession = async (session: Stripe.Checkout.Session) => {
+  if (session.payment_status !== "paid") return;
+  const userId = session.metadata?.userId ?? "";
+  const generationId = session.metadata?.generationId ?? "";
+  const domain = session.metadata?.domain ?? "";
+  if (!userId || !generationId || !domain) return;
+  const generation = getGeneration(userId, generationId);
+  if (!generation) {
+    console.error(`Domain webhook: generation ${generationId} not found for user ${userId}`);
+    return;
+  }
+  const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain);
+  updateGenerationDeployment(userId, generationId, { customDomain: domain, hostingProvider: "cloudflare-pages" });
+  console.log(`Deployed ${generationId} to Cloudflare Pages (${pagesUrl}), domain: ${domain}`);
+};
+
+const getRequestOrigin = (request: express.Request) => {
+  if (process.env.PUBLIC_SITE_ORIGIN) return process.env.PUBLIC_SITE_ORIGIN.replace(/\/$/, "");
+  if (process.env.SERVER_URL) return process.env.SERVER_URL.replace(/\/$/, "");
+  if (["localhost", "127.0.0.1", "::1"].includes(request.hostname)) return `http://localhost:${port}`;
+  return `${request.protocol}://${request.get("host")}`;
+};
+
+const buildDeploymentResponse = (request: express.Request, generation: NonNullable<ReturnType<typeof getGenerationSummary>>) => {
+  const origin = getRequestOrigin(request);
+  const publicUrl = `${origin}/${generation.publishSlug}`;
+  const customDomainUrl = generation.customDomain ? `https://${generation.customDomain}` : null;
+  const siteProtocol = isLocalDomain ? "http" : "https";
+  const defaultPort = isLocalDomain ? 80 : 443;
+  const sitePort = port !== defaultPort ? `:${port}` : "";
+  const subdomainUrl = `${siteProtocol}://${generation.publishSlug}.${siteDomain}${sitePort}`;
+  const hostActions: Record<typeof generation.hostingProvider, { label: string; url: string }> = {
+    "pixora-local": { label: "Open local Pixora site", url: subdomainUrl },
+    vercel: { label: "Continue to Vercel", url: "https://vercel.com/new" },
+    netlify: { label: "Continue to Netlify", url: "https://app.netlify.com/drop" },
+    "cloudflare-pages": {
+      label: "Open on Cloudflare Pages",
+      url: `https://${pagesProjectName(generation.id)}.pages.dev`
+    },
+    "self-hosted": { label: "Open published HTML", url: publicUrl }
+  };
+  const action = hostActions[generation.hostingProvider] ?? hostActions["pixora-local"];
+  return {
+    ...generation,
+    publicUrl,
+    customDomainUrl,
+    hostActionLabel: action.label,
+    hostActionUrl: action.url
+  };
+};
+
+const publicHtml = (site: GeneratedSite) => site.previewHtml;
+
 // ─── Routes ──────────────────────────────────────────────────────────────────
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "pixora-api" }));
@@ -310,6 +408,10 @@ app.post("/api/auth/signup", async (request, response, next) => {
 
     response.status(201).json(issueSession(user));
   } catch (error) {
+    if (error instanceof Error && error.message.startsWith("DOMAIN_ALREADY_CONNECTED:")) {
+      response.status(409).json({ message: `${error.message.split(":")[1]} is already connected to another website.` });
+      return;
+    }
     next(error);
   }
 });
@@ -448,6 +550,178 @@ app.post("/api/auth/logout", requireUser, (request, response) => {
 
 app.get("/api/billing/credit-packages", requireUser, requireVerifiedUser, (_request, response) => {
   response.json({ packages: creditPackages });
+});
+
+// Connect a domain the user already owns — no purchase needed
+app.post("/api/generations/:id/connect-domain", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    const user = response.locals.user as UserAccount;
+    const generationId = String(request.params.id);
+    const { domain } = request.body as { domain?: string };
+    if (!domain || typeof domain !== "string" || domain.trim().length < 4) {
+      response.status(400).json({ message: "Enter a valid domain name." });
+      return;
+    }
+    const generation = getGeneration(user.id, generationId);
+    if (!generation) {
+      response.status(404).json({ message: "Generation not found. Publish it first." });
+      return;
+    }
+    const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain.trim().toLowerCase());
+    updateGenerationDeployment(user.id, generationId, {
+      customDomain: domain.trim().toLowerCase(),
+      hostingProvider: "cloudflare-pages"
+    });
+    const summary = getGenerationSummary(user.id, generationId);
+    const projectName = pagesProjectName(generationId);
+    response.json({
+      connected: true,
+      domain: domain.trim().toLowerCase(),
+      pagesUrl,
+      cname: `${projectName}.pages.dev`,
+      deployment: summary ? buildDeploymentResponse(request, summary) : null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/domains/search", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    const input = domainSearchSchema.parse(request.body);
+    response.json({ suggestions: await searchDomains(input.query) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/domains/checkout", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    if (stripeSecretKey && !isValidStripeSecretKey) {
+      response.status(501).json({ message: "Stripe secret key must start with sk_test_ or sk_live_." });
+      return;
+    }
+    if (!stripe) {
+      response.status(501).json({ message: "Domain checkout needs Stripe configured first." });
+      return;
+    }
+
+    const user = response.locals.user as UserAccount;
+    const input = domainCheckoutSchema.parse(request.body);
+    const generation = getGenerationSummary(user.id, input.generationId);
+    if (!generation) {
+      response.status(404).json({ message: "Save a website before buying a domain for it." });
+      return;
+    }
+
+    const domain = await findDomainSuggestion(input.domain);
+    if (!domain.available) {
+      response.status(409).json({ message: `${domain.domain} is not available.` });
+      return;
+    }
+
+    const amount = domain.priceCents + Math.max(0, input.years - 1) * domain.renewalPriceCents;
+    const successUrl =
+      process.env.DOMAIN_SUCCESS_URL ??
+      `${clientOrigin}?domain_checkout=success&session_id={CHECKOUT_SESSION_ID}&domain=${encodeURIComponent(domain.domain)}`;
+    const cancelUrl = process.env.DOMAIN_CANCEL_URL ?? `${clientOrigin}?domain_checkout=cancel`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: user.email,
+      client_reference_id: user.id,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      line_items: [
+        {
+          price_data: {
+            currency: domain.currency,
+            unit_amount: amount,
+            product_data: {
+              name: `Pixora domain: ${domain.domain}`,
+              description: `${input.years} year registration${input.autoRenew ? " with auto-renew enabled" : ""}`
+            }
+          },
+          quantity: 1
+        }
+      ],
+      metadata: {
+        type: "domain-registration",
+        userId: user.id,
+        generationId: generation.id,
+        domain: domain.domain,
+        years: String(input.years),
+        autoRenew: String(input.autoRenew),
+        registrar: domain.registrar
+      }
+    });
+
+    if (!session.url) {
+      response.status(502).json({ message: "Stripe did not return a checkout URL." });
+      return;
+    }
+
+    response.json({ url: session.url });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/domains/checkout/sync", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    if (!stripe) {
+      response.status(501).json({ message: "Stripe is not configured." });
+      return;
+    }
+    const { sessionId } = request.body as { sessionId?: string };
+    if (!sessionId) {
+      response.status(400).json({ message: "Missing sessionId." });
+      return;
+    }
+    const user = response.locals.user as UserAccount;
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.metadata?.userId !== user.id) {
+      response.status(403).json({ message: "This checkout session belongs to a different user." });
+      return;
+    }
+    if (session.payment_status !== "paid") {
+      response.json({ deployed: false, status: session.payment_status });
+      return;
+    }
+    const generationId = session.metadata?.generationId ?? "";
+    const domain = session.metadata?.domain ?? "";
+    if (!generationId || !domain) {
+      response.status(400).json({ message: "Checkout session is missing deployment metadata." });
+      return;
+    }
+    // Idempotent: if already deployed to this domain, return existing deployment
+    const existing = getGenerationSummary(user.id, generationId);
+    if (existing?.hostingProvider === "cloudflare-pages" && existing.customDomain === domain) {
+      response.json({
+        deployed: true,
+        pagesUrl: `https://${pagesProjectName(generationId)}.pages.dev`,
+        domain,
+        deployment: buildDeploymentResponse(request, existing)
+      });
+      return;
+    }
+    const generation = getGeneration(user.id, generationId);
+    if (!generation) {
+      response.status(404).json({ message: "Generation not found." });
+      return;
+    }
+    const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain);
+    updateGenerationDeployment(user.id, generationId, { customDomain: domain, hostingProvider: "cloudflare-pages" });
+    const summary = getGenerationSummary(user.id, generationId);
+    response.json({
+      deployed: true,
+      pagesUrl,
+      domain,
+      deployment: summary ? buildDeploymentResponse(request, summary) : null
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/billing/checkout", requireUser, requireVerifiedUser, async (request, response, next) => {
@@ -617,17 +891,25 @@ app.delete("/api/admin/generations/:id", requireUser, requireVerifiedUser, requi
   response.status(204).send();
 });
 
-app.get("/api/generations", requireUser, requireVerifiedUser, (_req, res) => {
-  res.json({ generations: listGenerations(res.locals.user.id) });
+app.get("/api/generations", requireUser, requireVerifiedUser, (req, res) => {
+  const gens = listGenerations(res.locals.user.id);
+  const siteProtocol = isLocalDomain ? "http" : "https";
+  const sitePort = port !== (isLocalDomain ? 80 : 443) ? `:${port}` : "";
+  const withUrls = gens.map((g) => ({
+    ...g,
+    publicUrl: `${siteProtocol}://${g.publishSlug}.${siteDomain}${sitePort}`
+  }));
+  res.json({ generations: withUrls });
 });
 
 app.get("/api/generations/:id", requireUser, requireVerifiedUser, (request, response) => {
-  const site = getGeneration(response.locals.user.id, String(request.params.id));
-  if (!site) {
+  const result = getGeneration(response.locals.user.id, String(request.params.id));
+  if (!result) {
     response.status(404).json({ message: "Generation not found." });
     return;
   }
-  response.json(site);
+  const summary = getGenerationSummary(response.locals.user.id, String(request.params.id));
+  response.json({ ...result, deployment: summary ? buildDeploymentResponse(request, summary) : null });
 });
 
 // Generate only — does NOT save. Client decides whether to save.
@@ -671,20 +953,176 @@ app.delete("/api/generations/:id", requireUser, requireVerifiedUser, (request, r
   response.status(204).send();
 });
 
-// Explicit save — called only when user clicks "Save to library"
-app.post("/api/generations", requireUser, requireVerifiedUser, (request, response, next) => {
+const isCloudflareConfigured = () => !!(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN);
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error("Only JPEG, PNG, WebP images and PDF files are supported."));
+  }
+});
+
+// Generate from a business card or invoice file (image or PDF)
+app.post("/api/generate-from-file", requireUser, requireVerifiedUser, upload.single("file"), async (request, response, next) => {
+  let chargedUserId: string | null = null;
+  try {
+    const user = response.locals.user as UserAccount;
+    if (!request.file) {
+      response.status(400).json({ message: "No file uploaded." });
+      return;
+    }
+    if (!user.isAdmin) {
+      const remainingCredits = consumeCredits(user.id, WEBSITE_GENERATION_CREDITS);
+      if (remainingCredits === null) {
+        response.status(402).json({
+          message: `You need ${WEBSITE_GENERATION_CREDITS} credits to generate a website.`,
+          requiredCredits: WEBSITE_GENERATION_CREDITS,
+          credits: user.credits
+        });
+        return;
+      }
+      chargedUserId = user.id;
+      user.credits = remainingCredits;
+    }
+    const intake = await extractIntakeFromFile(request.file.buffer, request.file.mimetype);
+    const usedTemplateIds = getUsedTemplateIds(user.id, intake.businessType);
+    console.log(`Generating site from file for "${intake.businessName}" (${intake.businessType})`);
+    const site = await runGenerationGraph(intake, usedTemplateIds);
+    console.log(`Generated ${site.templateId} site ${site.id} from file`);
+    response.json({ ...site, credits: user.credits, creditsCharged: user.isAdmin ? 0 : WEBSITE_GENERATION_CREDITS, extractedIntake: intake });
+  } catch (error) {
+    if (chargedUserId) addCredits(chargedUserId, WEBSITE_GENERATION_CREDITS);
+    next(error);
+  }
+});
+
+// Save + optionally deploy to Cloudflare Pages (skipped when self-hosting)
+app.post("/api/generations", requireUser, requireVerifiedUser, async (request, response, next) => {
   try {
     const { intake, site } = request.body as { intake: BusinessIntake; site: GeneratedSite };
     if (!intake || !site || !site.id || !site.templateId) {
       response.status(400).json({ message: "Invalid save request." });
       return;
     }
-    saveGeneration(response.locals.user.id, intake, site);
-    console.log(`Saved site ${site.id} for user ${(response.locals.user as UserAccount).id}`);
-    response.status(201).json({ saved: true, id: site.id });
+    const userId = (response.locals.user as UserAccount).id;
+    saveGeneration(userId, intake, site);
+
+    let pagesUrl: string | null = null;
+    if (isCloudflareConfigured()) {
+      try {
+        const result = await deployToCloudflarePages(site.id, site.previewHtml);
+        pagesUrl = result.pagesUrl;
+        updateGenerationDeployment(userId, site.id, { hostingProvider: "cloudflare-pages" });
+      } catch (deployError) {
+        console.error("Pages deploy failed (site still saved):", deployError);
+      }
+    }
+
+    const summary = getGenerationSummary(userId, site.id);
+    console.log(`Saved site ${site.id} for user ${userId}${pagesUrl ? ` → ${pagesUrl}` : ""}`);
+    response.status(201).json({
+      saved: true,
+      id: site.id,
+      pagesUrl,
+      deployment: summary ? buildDeploymentResponse(request, summary) : null
+    });
   } catch (error) {
     next(error);
   }
+});
+
+// Re-publish an already-saved generation
+app.post("/api/generations/:id/publish", requireUser, requireVerifiedUser, async (request, response, next) => {
+  try {
+    const user = response.locals.user as UserAccount;
+    const generationId = String(request.params.id);
+    const generation = getGeneration(user.id, generationId);
+    if (!generation) {
+      response.status(404).json({ message: "Generation not found." });
+      return;
+    }
+
+    let pagesUrl: string | null = null;
+    if (isCloudflareConfigured()) {
+      const result = await deployToCloudflarePages(generationId, generation.site.previewHtml);
+      pagesUrl = result.pagesUrl;
+      updateGenerationDeployment(user.id, generationId, { hostingProvider: "cloudflare-pages" });
+      console.log(`Re-published site ${generationId} → ${pagesUrl}`);
+    } else {
+      updateGenerationDeployment(user.id, generationId, { hostingProvider: "pixora-local" });
+      console.log(`Published site ${generationId} locally`);
+    }
+
+    const summary = getGenerationSummary(user.id, generationId);
+    response.json({
+      pagesUrl,
+      deployment: summary ? buildDeploymentResponse(request, summary) : null
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/generations/:id/deployment", requireUser, requireVerifiedUser, (request, response, next) => {
+  try {
+    const input = deploymentSchema.parse(request.body);
+    const generation = updateGenerationDeployment((response.locals.user as UserAccount).id, String(request.params.id), {
+      publishSlug: input.publishSlug,
+      customDomain: input.customDomain,
+      hostingProvider: input.hostingProvider
+    });
+    if (!generation) {
+      response.status(404).json({ message: "Generation not found." });
+      return;
+    }
+    response.json({ deployment: buildDeploymentResponse(request, generation) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use((request, response, next) => {
+  if (request.method !== "GET" || request.path.startsWith("/api")) {
+    next();
+    return;
+  }
+
+  const host = request.hostname.toLowerCase();
+
+  // Subdomain-based hosting: {slug}.{SITE_DOMAIN}
+  const escapedSiteDomain = siteDomain.replace(/\./g, "\\.");
+  const subdomainMatch = host.match(new RegExp(`^([a-z0-9][a-z0-9-]*)\\.${escapedSiteDomain}$`));
+  if (subdomainMatch) {
+    const slug = subdomainMatch[1];
+    const slugSite = getPublicGenerationBySlug(slug);
+    if (slugSite) {
+      response.type("html").send(publicHtml(slugSite.site));
+      return;
+    }
+  }
+
+  // Custom domain matching for production (non-localhost, non-SITE_DOMAIN hosts)
+  if (host && !["localhost", "127.0.0.1", "::1"].includes(host) && !subdomainMatch) {
+    const customDomainSite = getPublicGenerationByCustomDomain(host);
+    if (customDomainSite) {
+      response.type("html").send(publicHtml(customDomainSite.site));
+      return;
+    }
+  }
+
+  if (/^\/[a-z0-9-]+\/?$/.test(request.path)) {
+    const slug = request.path.replace(/^\/|\/$/g, "");
+    const slugSite = getPublicGenerationBySlug(slug);
+    if (slugSite) {
+      response.type("html").send(publicHtml(slugSite.site));
+      return;
+    }
+  }
+
+  next();
 });
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -692,8 +1130,16 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
     res.status(400).json({ message: "Invalid intake data", issues: error.issues });
     return;
   }
+  if (error instanceof CloudflareRegistrarError) {
+    res.status(error.status).json({ message: error.message });
+    return;
+  }
+  if (error instanceof multer.MulterError || (error instanceof Error && error.message.includes("supported"))) {
+    res.status(400).json({ message: error instanceof Error ? error.message : "File upload error." });
+    return;
+  }
   console.error(error);
-  res.status(500).json({ message: "Unexpected server error." });
+  res.status(500).json({ message: error instanceof Error ? error.message : "Unexpected server error." });
 });
 
 const server = app.listen(port, () => {

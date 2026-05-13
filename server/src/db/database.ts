@@ -25,6 +25,42 @@ export const WEBSITE_GENERATION_CREDITS = 5;
 const colExists = (table: string, col: string) =>
   (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some((c) => c.name === col);
 
+const slugify = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+
+const createUniquePublishSlug = (businessName: string, generationId?: string) => {
+  const base = slugify(businessName) || "website";
+  let slug = base;
+  let counter = 2;
+  while (
+    db
+      .prepare("SELECT id FROM generations WHERE publish_slug = ? AND (? IS NULL OR id != ?)")
+      .get(slug, generationId ?? null, generationId ?? null)
+  ) {
+    slug = `${base}-${counter}`;
+    counter += 1;
+  }
+  return slug;
+};
+
+const normalizeCustomDomain = (value: string | null | undefined) => {
+  if (!value) return null;
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .replace(/\.$/, "");
+  return normalized || null;
+};
+
 export const initializeDatabase = () => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -107,6 +143,10 @@ export const initializeDatabase = () => {
         business_name TEXT NOT NULL,
         business_type TEXT NOT NULL,
         template_id TEXT NOT NULL,
+        publish_slug TEXT,
+        custom_domain TEXT,
+        hosting_provider TEXT NOT NULL DEFAULT 'pixora-local',
+        deployment_updated_at TEXT,
         intake_json TEXT NOT NULL,
         generated_site_json TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -125,6 +165,19 @@ export const initializeDatabase = () => {
       userIdCol = { name: "user_id", notnull: 0 };
     }
 
+    if (!colExists("generations", "publish_slug")) {
+      db.exec("ALTER TABLE generations ADD COLUMN publish_slug TEXT");
+    }
+    if (!colExists("generations", "custom_domain")) {
+      db.exec("ALTER TABLE generations ADD COLUMN custom_domain TEXT");
+    }
+    if (!colExists("generations", "hosting_provider")) {
+      db.exec("ALTER TABLE generations ADD COLUMN hosting_provider TEXT NOT NULL DEFAULT 'pixora-local'");
+    }
+    if (!colExists("generations", "deployment_updated_at")) {
+      db.exec("ALTER TABLE generations ADD COLUMN deployment_updated_at TEXT");
+    }
+
     if (userIdCol && !userIdCol.notnull) {
       const users = db.prepare("SELECT id FROM users ORDER BY created_at ASC LIMIT 1").all() as Array<{ id: string }>;
       if (users.length === 1) {
@@ -141,12 +194,18 @@ export const initializeDatabase = () => {
           business_name TEXT NOT NULL,
           business_type TEXT NOT NULL,
           template_id TEXT NOT NULL,
+          publish_slug TEXT,
+          custom_domain TEXT,
+          hosting_provider TEXT NOT NULL DEFAULT 'pixora-local',
+          deployment_updated_at TEXT,
           intake_json TEXT NOT NULL,
           generated_site_json TEXT NOT NULL,
           created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         );
-        INSERT INTO generations_new SELECT id, user_id, business_name, business_type, template_id, intake_json, generated_site_json, created_at FROM generations;
+        INSERT INTO generations_new
+          SELECT id, user_id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, intake_json, generated_site_json, created_at
+          FROM generations;
         DROP TABLE generations;
         ALTER TABLE generations_new RENAME TO generations;
         COMMIT;
@@ -158,7 +217,17 @@ export const initializeDatabase = () => {
   db.exec("CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions (expires_at)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_generations_user ON generations (user_id)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_generations_created ON generations (created_at)");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_generations_publish_slug ON generations (publish_slug)");
+  db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_generations_custom_domain ON generations (custom_domain)");
   db.exec("CREATE INDEX IF NOT EXISTS idx_credit_purchases_user ON credit_purchases (user_id)");
+
+  const unpublished = db.prepare("SELECT id, business_name FROM generations WHERE publish_slug IS NULL OR publish_slug = ''").all() as Array<{
+    id: string;
+    business_name: string;
+  }>;
+  for (const row of unpublished) {
+    db.prepare("UPDATE generations SET publish_slug = ? WHERE id = ?").run(createUniquePublishSlug(row.business_name, row.id), row.id);
+  }
 };
 
 // ─── User helpers ────────────────────────────────────────────────────────────
@@ -311,15 +380,39 @@ export const deleteVerificationTokensForUser = (userId: string) => {
 // ─── Generation helpers ──────────────────────────────────────────────────────
 
 export const saveGeneration = (userId: string, intake: BusinessIntake, site: GeneratedSite) => {
+  const existing = db
+    .prepare("SELECT publish_slug, custom_domain, hosting_provider, deployment_updated_at FROM generations WHERE id = ?")
+    .get(site.id) as
+    | {
+        publish_slug: string | null;
+        custom_domain: string | null;
+        hosting_provider: GenerationSummary["hostingProvider"] | null;
+        deployment_updated_at: string | null;
+      }
+    | undefined;
+
+  // Reuse slug from a previous generation with the same business name so the URL stays stable
+  const previousByName = !existing
+    ? (db
+        .prepare("SELECT publish_slug FROM generations WHERE user_id = ? AND lower(business_name) = lower(?) ORDER BY created_at ASC LIMIT 1")
+        .get(userId, intake.businessName) as { publish_slug: string } | undefined)
+    : undefined;
+
+  const publishSlug = existing?.publish_slug || previousByName?.publish_slug || createUniquePublishSlug(intake.businessName, site.id);
   db.prepare(
-    `INSERT INTO generations (id, user_id, business_name, business_type, template_id, intake_json, generated_site_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT OR REPLACE INTO generations
+       (id, user_id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, intake_json, generated_site_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     site.id,
     userId,
     intake.businessName,
     intake.businessType,
     site.templateId,
+    publishSlug,
+    existing?.custom_domain ?? null,
+    existing?.hosting_provider ?? "pixora-local",
+    existing?.deployment_updated_at ?? new Date().toISOString(),
     JSON.stringify(intake),
     JSON.stringify(site)
   );
@@ -329,7 +422,7 @@ export const listGenerations = (userId: string): GenerationSummary[] =>
   (
     db
       .prepare(
-        `SELECT id, business_name, business_type, template_id, created_at
+        `SELECT id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, created_at
          FROM generations
          WHERE user_id = ?
          ORDER BY created_at DESC
@@ -340,6 +433,10 @@ export const listGenerations = (userId: string): GenerationSummary[] =>
       business_name: string;
       business_type: GenerationSummary["businessType"];
       template_id: string;
+      publish_slug: string;
+      custom_domain: string | null;
+      hosting_provider: GenerationSummary["hostingProvider"] | null;
+      deployment_updated_at: string | null;
       created_at: string;
     }>
   ).map((row) => ({
@@ -347,15 +444,133 @@ export const listGenerations = (userId: string): GenerationSummary[] =>
     businessName: row.business_name,
     businessType: row.business_type,
     templateId: row.template_id,
+    publishSlug: row.publish_slug,
+    customDomain: row.custom_domain,
+    hostingProvider: row.hosting_provider ?? "pixora-local",
+    deploymentUpdatedAt: row.deployment_updated_at,
     createdAt: row.created_at
   }));
 
-export const getGeneration = (userId: string, id: string): GeneratedSite | null => {
+export const getGeneration = (userId: string, id: string): { site: GeneratedSite; intake: BusinessIntake } | null => {
   const row = db
-    .prepare("SELECT generated_site_json FROM generations WHERE user_id = ? AND id = ?")
-    .get(userId, id) as { generated_site_json: string } | undefined;
+    .prepare("SELECT generated_site_json, intake_json FROM generations WHERE user_id = ? AND id = ?")
+    .get(userId, id) as { generated_site_json: string; intake_json: string } | undefined;
 
-  return row ? (JSON.parse(row.generated_site_json) as GeneratedSite) : null;
+  return row
+    ? {
+        site: JSON.parse(row.generated_site_json) as GeneratedSite,
+        intake: JSON.parse(row.intake_json) as BusinessIntake
+      }
+    : null;
+};
+
+export const getPublicGenerationBySlug = (slug: string): { site: GeneratedSite; intake: BusinessIntake } | null => {
+  const row = db
+    .prepare("SELECT generated_site_json, intake_json FROM generations WHERE publish_slug = ?")
+    .get(slug) as { generated_site_json: string; intake_json: string } | undefined;
+
+  return row
+    ? {
+        site: JSON.parse(row.generated_site_json) as GeneratedSite,
+        intake: JSON.parse(row.intake_json) as BusinessIntake
+      }
+    : null;
+};
+
+export const getPublicGenerationByCustomDomain = (domain: string): { site: GeneratedSite; intake: BusinessIntake } | null => {
+  const normalizedDomain = domain.toLowerCase().replace(/^www\./, "");
+  const row = db
+    .prepare("SELECT generated_site_json, intake_json FROM generations WHERE lower(custom_domain) IN (?, ?)")
+    .get(normalizedDomain, `www.${normalizedDomain}`) as { generated_site_json: string; intake_json: string } | undefined;
+
+  return row
+    ? {
+        site: JSON.parse(row.generated_site_json) as GeneratedSite,
+        intake: JSON.parse(row.intake_json) as BusinessIntake
+      }
+    : null;
+};
+
+export const updateGenerationDeployment = (
+  userId: string,
+  id: string,
+  input: {
+    publishSlug?: string;
+    customDomain?: string | null;
+    hostingProvider?: GenerationSummary["hostingProvider"];
+  }
+): GenerationSummary | null => {
+  const current = db
+    .prepare("SELECT business_name FROM generations WHERE user_id = ? AND id = ?")
+    .get(userId, id) as { business_name: string } | undefined;
+  if (!current) return null;
+
+  const publishSlug = input.publishSlug ? createUniquePublishSlug(input.publishSlug, id) : undefined;
+  const customDomain = input.customDomain === undefined ? undefined : normalizeCustomDomain(input.customDomain);
+  const deploymentUpdatedAt = new Date().toISOString();
+  const assignments: string[] = ["deployment_updated_at = ?"];
+  const values: Array<string | null> = [deploymentUpdatedAt];
+
+  if (publishSlug) {
+    assignments.push("publish_slug = ?");
+    values.push(publishSlug);
+  }
+  if (input.customDomain !== undefined) {
+    const domainValue = customDomain ?? null;
+    if (customDomain) {
+      const existingDomain = db
+        .prepare("SELECT id FROM generations WHERE lower(custom_domain) IN (?, ?) AND id != ?")
+        .get(customDomain, `www.${customDomain}`, id) as { id: string } | undefined;
+      if (existingDomain) {
+        throw new Error(`DOMAIN_ALREADY_CONNECTED:${customDomain}`);
+      }
+    }
+    assignments.push("custom_domain = ?");
+    values.push(domainValue);
+  }
+  if (input.hostingProvider) {
+    assignments.push("hosting_provider = ?");
+    values.push(input.hostingProvider);
+  }
+
+  values.push(userId, id);
+  db.prepare(`UPDATE generations SET ${assignments.join(", ")} WHERE user_id = ? AND id = ?`).run(...values);
+  return getGenerationSummary(userId, id);
+};
+
+export const getGenerationSummary = (userId: string, id: string): GenerationSummary | null => {
+  const row = db
+    .prepare(
+      `SELECT id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, created_at
+       FROM generations
+       WHERE user_id = ? AND id = ?`
+    )
+    .get(userId, id) as
+    | {
+        id: string;
+        business_name: string;
+        business_type: GenerationSummary["businessType"];
+        template_id: string;
+        publish_slug: string;
+        custom_domain: string | null;
+        hosting_provider: GenerationSummary["hostingProvider"] | null;
+        deployment_updated_at: string | null;
+        created_at: string;
+      }
+    | undefined;
+  return row
+    ? {
+        id: row.id,
+        businessName: row.business_name,
+        businessType: row.business_type,
+        templateId: row.template_id,
+        publishSlug: row.publish_slug,
+        customDomain: row.custom_domain,
+        hostingProvider: row.hosting_provider ?? "pixora-local",
+        deploymentUpdatedAt: row.deployment_updated_at,
+        createdAt: row.created_at
+      }
+    : null;
 };
 
 export const getUsedTemplateIds = (userId: string, businessType: string): string[] =>
@@ -472,7 +687,7 @@ export const listAdminGenerations = (userId?: string): AdminGenerationSummary[] 
   (
     db
       .prepare(
-        `SELECT g.id, g.user_id, g.business_name, g.business_type, g.template_id, g.created_at, u.email, u.name
+        `SELECT g.id, g.user_id, g.business_name, g.business_type, g.template_id, g.publish_slug, g.custom_domain, g.hosting_provider, g.deployment_updated_at, g.created_at, u.email, u.name
          FROM generations g
          JOIN users u ON u.id = g.user_id
          WHERE (? IS NULL OR g.user_id = ?)
@@ -485,6 +700,10 @@ export const listAdminGenerations = (userId?: string): AdminGenerationSummary[] 
       business_name: string;
       business_type: GenerationSummary["businessType"];
       template_id: string;
+      publish_slug: string;
+      custom_domain: string | null;
+      hosting_provider: GenerationSummary["hostingProvider"] | null;
+      deployment_updated_at: string | null;
       created_at: string;
       email: string;
       name: string;
@@ -497,6 +716,10 @@ export const listAdminGenerations = (userId?: string): AdminGenerationSummary[] 
     businessName: row.business_name,
     businessType: row.business_type,
     templateId: row.template_id,
+    publishSlug: row.publish_slug,
+    customDomain: row.custom_domain,
+    hostingProvider: row.hosting_provider ?? "pixora-local",
+    deploymentUpdatedAt: row.deployment_updated_at,
     createdAt: row.created_at
   }));
 

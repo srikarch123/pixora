@@ -43,6 +43,11 @@ export interface GenerationSummary {
   businessType: BusinessType;
   templateId: string;
   createdAt: string;
+  publishSlug: string;
+  publicUrl: string;
+  customDomain: string | null;
+  hostingProvider: "pixora-local" | "vercel" | "netlify" | "cloudflare-pages" | "self-hosted";
+  deploymentUpdatedAt: string | null;
 }
 
 export interface GeneratedSite {
