@@ -1,6 +1,10 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
-import "dotenv/config";
+import { config as loadEnv } from "dotenv";
+loadEnv({ path: process.env.NODE_ENV === "production" ? ".env" : ".env.local" });
 import express from "express";
 import multer from "multer";
 import { OAuth2Client } from "google-auth-library";
@@ -58,7 +62,13 @@ const app = express();
 const port = Number(process.env.PORT ?? 3000);
 const siteDomain = process.env.SITE_DOMAIN ?? "localhost";
 const isLocalDomain = siteDomain === "localhost" || siteDomain.endsWith(".localhost");
-const clientOrigin = process.env.CLIENT_ORIGIN ?? "http://localhost:4200";
+const publicSiteMode = process.env.PUBLIC_SITE_MODE === "subdomain" ? "subdomain" : "path";
+const isProduction = process.env.NODE_ENV === "production";
+const clientOrigins = (process.env.CLIENT_ORIGINS ?? process.env.CLIENT_ORIGIN ?? "http://localhost:4200")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const clientOrigin = clientOrigins[0] ?? "http://localhost:4200";
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const isValidStripeSecretKey = stripeSecretKey.startsWith("sk_test_") || stripeSecretKey.startsWith("sk_live_");
@@ -70,7 +80,29 @@ const adminEmails = new Set(
     .filter(Boolean)
 );
 
-app.use(cors({ origin: clientOrigin }));
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || clientOrigins.includes(origin.replace(/\/$/, ""))) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("CORS origin not allowed."));
+    }
+  })
+);
+
+app.use((_request, response, next) => {
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.setHeader("X-Frame-Options", "SAMEORIGIN");
+  if (isProduction) {
+    response.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
 
 app.post("/api/billing/webhook", express.raw({ type: "application/json" }), (request, response) => {
   if (stripeSecretKey && !isValidStripeSecretKey) {
@@ -354,22 +386,33 @@ const getRequestOrigin = (request: express.Request) => {
   return `${request.protocol}://${request.get("host")}`;
 };
 
-const buildDeploymentResponse = (request: express.Request, generation: NonNullable<ReturnType<typeof getGenerationSummary>>) => {
-  const origin = getRequestOrigin(request);
-  const customDomainUrl = generation.customDomain ? `https://${generation.customDomain}` : null;
+const buildSubdomainUrl = (generation: NonNullable<ReturnType<typeof getGenerationSummary>>) => {
   const siteProtocol = isLocalDomain ? "http" : "https";
   const defaultPort = isLocalDomain ? 80 : 443;
   const sitePort = port !== defaultPort ? `:${port}` : "";
-  const subdomainUrl = `${siteProtocol}://${generation.publishSlug}.${siteDomain}${sitePort}`;
-  const pathUrl = `${origin}/${generation.publishSlug}`;
-  const publicUrl = isLocalDomain ? subdomainUrl : pathUrl;
+  return `${siteProtocol}://${generation.publishSlug}.${siteDomain}${sitePort}`;
+};
+
+const buildPublicUrl = (
+  request: express.Request,
+  generation: NonNullable<ReturnType<typeof getGenerationSummary>>
+) => {
+  if (publicSiteMode === "subdomain") {
+    return buildSubdomainUrl(generation);
+  }
+  return `${getRequestOrigin(request)}/${generation.publishSlug}`;
+};
+
+const buildDeploymentResponse = (request: express.Request, generation: NonNullable<ReturnType<typeof getGenerationSummary>>) => {
+  const customDomainUrl = generation.customDomain ? `https://${generation.customDomain}` : null;
+  const publicUrl = buildPublicUrl(request, generation);
   const hostActions: Record<typeof generation.hostingProvider, { label: string; url: string }> = {
-    "pixora-local": { label: "Open local Pixora site", url: subdomainUrl },
+    "pixora-local": { label: isProduction ? "Open Pixora site" : "Open local Pixora site", url: publicUrl },
     vercel: { label: "Continue to Vercel", url: "https://vercel.com/new" },
     netlify: { label: "Continue to Netlify", url: "https://app.netlify.com/drop" },
     "cloudflare-pages": {
-      label: isLocalDomain ? "Open local Pixora site" : "Open on Cloudflare Pages",
-      url: isLocalDomain ? subdomainUrl : `https://${pagesProjectName(generation.id)}.pages.dev`
+      label: isLocalDomain || !isProduction ? "Open Pixora site" : "Open on Cloudflare Pages",
+      url: isLocalDomain || !isProduction ? publicUrl : `https://${pagesProjectName(generation.id)}.pages.dev`
     },
     "self-hosted": { label: "Open published HTML", url: publicUrl }
   };
@@ -912,11 +955,9 @@ app.delete("/api/admin/generations/:id", requireUser, requireVerifiedUser, requi
 
 app.get("/api/generations", requireUser, requireVerifiedUser, (req, res) => {
   const gens = listGenerations(res.locals.user.id);
-  const siteProtocol = isLocalDomain ? "http" : "https";
-  const sitePort = port !== (isLocalDomain ? 80 : 443) ? `:${port}` : "";
   const withUrls = gens.map((g) => ({
     ...g,
-    publicUrl: `${siteProtocol}://${g.publishSlug}.${siteDomain}${sitePort}`
+    publicUrl: buildPublicUrl(req, g)
   }));
   res.json({ generations: withUrls });
 });
@@ -1144,6 +1185,23 @@ app.use((request, response, next) => {
   next();
 });
 
+// Serve Angular build and fall back to index.html for client-side routing
+const __serverDir = dirname(fileURLToPath(import.meta.url));
+const clientBuildPath = join(__serverDir, "../../client/dist/pixora-client");
+if (existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath, { index: false }));
+  app.get("/{*splat}", (req, res, next) => {
+    if (req.path.startsWith("/api/")) { next(); return; }
+    const indexPath = join(clientBuildPath, "index.html");
+    if (existsSync(indexPath)) {
+      res.setHeader("Cache-Control", "no-cache");
+      res.sendFile(indexPath);
+    } else {
+      next();
+    }
+  });
+}
+
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   if (error instanceof z.ZodError) {
     const message = error.issues[0]?.message ?? "Invalid request data.";
@@ -1159,7 +1217,9 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
     return;
   }
   console.error(error);
-  res.status(500).json({ message: error instanceof Error ? error.message : "Unexpected server error." });
+  res.status(500).json({
+    message: isProduction ? "Unexpected server error." : error instanceof Error ? error.message : "Unexpected server error."
+  });
 });
 
 const server = app.listen(port, () => {
