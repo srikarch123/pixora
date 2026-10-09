@@ -328,14 +328,15 @@ const rowToUser = (row: UserRow): UserAccount => ({
 });
 
 export const getUserBySessionTokenHash = (tokenHash: string): UserAccount | null => {
+  // expires_at is stored as an ISO string, so compare against an ISO "now" (CURRENT_TIMESTAMP uses a different format).
   const row = db
     .prepare(
-		      `SELECT u.id, u.name, u.email, u.password_hash, u.email_verified, u.is_admin, u.credits, u.google_id, u.created_at
-		       FROM sessions s
-	       JOIN users u ON u.id = s.user_id
-	       WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP`
+      `SELECT u.id, u.name, u.email, u.password_hash, u.email_verified, u.is_admin, u.credits, u.google_id, u.created_at
+       FROM sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token_hash = ? AND s.expires_at > ?`
     )
-    .get(tokenHash) as UserRow | undefined;
+    .get(tokenHash, new Date().toISOString()) as UserRow | undefined;
 
   return row ? rowToUser(row) : null;
 };
@@ -379,11 +380,20 @@ export const deleteVerificationTokensForUser = (userId: string) => {
 
 // ─── Generation helpers ──────────────────────────────────────────────────────
 
+export class GenerationOwnershipError extends Error {
+  constructor() {
+    super("Generation belongs to another user.");
+    this.name = "GenerationOwnershipError";
+  }
+}
+
 export const saveGeneration = (userId: string, intake: BusinessIntake, site: GeneratedSite) => {
   const existing = db
-    .prepare("SELECT publish_slug, custom_domain, hosting_provider, deployment_updated_at FROM generations WHERE id = ?")
+    .prepare("SELECT user_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, created_at FROM generations WHERE id = ?")
     .get(site.id) as
     | {
+        user_id: string;
+        created_at: string;
         publish_slug: string | null;
         custom_domain: string | null;
         hosting_provider: GenerationSummary["hostingProvider"] | null;
@@ -391,18 +401,28 @@ export const saveGeneration = (userId: string, intake: BusinessIntake, site: Gen
       }
     | undefined;
 
-  // Reuse slug from a previous generation with the same business name so the URL stays stable
+  // Site ids come from the client; never let one user's save replace another user's row.
+  if (existing && existing.user_id !== userId) {
+    throw new GenerationOwnershipError();
+  }
+
+  // Reuse slug from a previous generation with the same business name so the URL stays stable.
+  // The unique slug index makes INSERT OR REPLACE supersede that row, so carry its domain settings over too.
   const previousByName = !existing
     ? (db
-        .prepare("SELECT publish_slug FROM generations WHERE user_id = ? AND lower(business_name) = lower(?) ORDER BY created_at ASC LIMIT 1")
-        .get(userId, intake.businessName) as { publish_slug: string } | undefined)
+        .prepare(
+          "SELECT publish_slug, custom_domain, hosting_provider FROM generations WHERE user_id = ? AND lower(business_name) = lower(?) ORDER BY created_at ASC LIMIT 1"
+        )
+        .get(userId, intake.businessName) as
+        | { publish_slug: string; custom_domain: string | null; hosting_provider: GenerationSummary["hostingProvider"] | null }
+        | undefined)
     : undefined;
 
   const publishSlug = existing?.publish_slug || previousByName?.publish_slug || createUniquePublishSlug(intake.businessName, site.id);
   db.prepare(
     `INSERT OR REPLACE INTO generations
-       (id, user_id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, intake_json, generated_site_json)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (id, user_id, business_name, business_type, template_id, publish_slug, custom_domain, hosting_provider, deployment_updated_at, intake_json, generated_site_json, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`
   ).run(
     site.id,
     userId,
@@ -410,11 +430,12 @@ export const saveGeneration = (userId: string, intake: BusinessIntake, site: Gen
     intake.businessType,
     site.templateId,
     publishSlug,
-    existing?.custom_domain ?? null,
-    existing?.hosting_provider ?? "pixora-local",
+    existing?.custom_domain ?? previousByName?.custom_domain ?? null,
+    existing?.hosting_provider ?? previousByName?.hosting_provider ?? "pixora-local",
     existing?.deployment_updated_at ?? new Date().toISOString(),
     JSON.stringify(intake),
-    JSON.stringify(site)
+    JSON.stringify(site),
+    existing?.created_at ?? null
   );
 };
 

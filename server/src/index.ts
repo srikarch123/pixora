@@ -5,7 +5,13 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import { config as loadEnv } from "dotenv";
 const __envDir = dirname(fileURLToPath(import.meta.url));
-loadEnv({ path: join(__envDir, process.env.NODE_ENV === "production" ? "../.env" : "../.env.local") });
+// Production reads server/.env. Development uses server/.env.local when present (so it never picks up
+// production secrets from .env), otherwise server/.env.
+const __localEnvPath = join(__envDir, "../.env.local");
+loadEnv({
+  path:
+    process.env.NODE_ENV !== "production" && existsSync(__localEnvPath) ? __localEnvPath : join(__envDir, "../.env")
+});
 import express from "express";
 import multer from "multer";
 import { OAuth2Client } from "google-auth-library";
@@ -50,6 +56,7 @@ import {
   setUserCredits,
   updateGenerationDeployment,
   updateUserAdminFlags,
+  GenerationOwnershipError,
   WEBSITE_GENERATION_CREDITS
 } from "./db/database.js";
 import { sendVerificationEmail } from "./email/mailer.js";
@@ -74,6 +81,21 @@ const stripeSecretKey = process.env.STRIPE_SECRET_KEY ?? "";
 const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? "";
 const isValidStripeSecretKey = stripeSecretKey.startsWith("sk_test_") || stripeSecretKey.startsWith("sk_live_");
 const stripe = isValidStripeSecretKey ? new Stripe(stripeSecretKey) : null;
+const hostnameOf = (value: string | undefined) => {
+  if (!value) return null;
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+};
+// Hosts that serve the Pixora app itself. Never resolve these to a customer site, otherwise a
+// customer could claim the app's own hostname as a "custom domain" or slug and take over the UI.
+const appHosts = new Set(
+  ["localhost", "127.0.0.1", "::1", ...clientOrigins, process.env.PUBLIC_SITE_ORIGIN, process.env.SERVER_URL]
+    .map((value) => (value && value.includes("://") ? hostnameOf(value) : value ?? null))
+    .filter((value): value is string => !!value)
+);
 const adminEmails = new Set(
   (process.env.ADMIN_EMAILS ?? "")
     .split(",")
@@ -159,6 +181,11 @@ app.use((request, response, next) => {
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
+const httpUrl = z
+  .string()
+  .url()
+  .refine((value) => /^https?:\/\//i.test(value), "Image URLs must start with http:// or https://.");
+
 const intakeSchema = z.object({
   businessName: z.string().min(2),
   businessType: z.enum(["restaurant", "retail", "services", "beauty", "portfolio"]),
@@ -169,8 +196,8 @@ const intakeSchema = z.object({
   audience: z.string().min(2),
   brandTone: z.enum(["warm", "modern", "premium", "playful", "traditional"]),
   colors: z.string().min(2),
-  heroImageUrl: z.string().url().optional().or(z.literal("")),
-  galleryImageUrls: z.array(z.string().url()).optional(),
+  heroImageUrl: httpUrl.optional().or(z.literal("")),
+  galleryImageUrls: z.array(httpUrl).optional(),
   sections: z
     .array(z.enum(["hero", "about", "services", "products", "menu", "gallery", "testimonials", "contact"]))
     .min(2),
@@ -180,6 +207,24 @@ const intakeSchema = z.object({
   whatsapp: z.string().optional(),
   address: z.string().optional(),
   socialLinks: z.string().optional()
+});
+
+// The client may edit the generated HTML before saving, so the site payload is user-controlled.
+// Published sites are isolated with a CSP sandbox (see sendPublicSite); here we only validate shape.
+const saveGenerationSchema = z.object({
+  intake: z
+    .object({
+      businessName: z.string().trim().min(1).max(200),
+      businessType: z.enum(["restaurant", "retail", "services", "beauty", "portfolio"])
+    })
+    .passthrough(),
+  site: z
+    .object({
+      id: z.string().uuid(),
+      templateId: z.string().min(1).max(100),
+      previewHtml: z.string().min(1)
+    })
+    .passthrough()
 });
 
 const signupSchema = z.object({
@@ -427,7 +472,14 @@ const buildDeploymentResponse = (request: express.Request, generation: NonNullab
   };
 };
 
-const publicHtml = (site: GeneratedSite) => site.previewHtml;
+// Customer sites are user-editable HTML served from the app's own origin. The CSP sandbox gives them an
+// opaque origin so their scripts cannot read the app's localStorage session token or call the API as the viewer.
+const publicSiteCsp = "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals";
+
+const sendPublicSite = (response: express.Response, site: GeneratedSite) => {
+  response.setHeader("Content-Security-Policy", publicSiteCsp);
+  response.type("html").send(site.previewHtml);
+};
 
 const dnsNameForDomain = (domain: string) => {
   const parts = domain.split(".");
@@ -475,10 +527,6 @@ app.post("/api/auth/signup", async (request, response, next) => {
 
     response.status(201).json(issueSession(user));
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("DOMAIN_ALREADY_CONNECTED:")) {
-      response.status(409).json({ message: `${error.message.split(":")[1]} is already connected to another website.` });
-      return;
-    }
     next(error);
   }
 });
@@ -567,6 +615,11 @@ app.post("/api/auth/google", async (request, response, next) => {
       response.status(401).json({ message: "Invalid Google token." });
       return;
     }
+    // Only trust the email (and link it to an existing account) when Google has verified it.
+    if (payload.email_verified !== true) {
+      response.status(401).json({ message: "Your Google account email is not verified." });
+      return;
+    }
 
     // Find by google_id first, then fall back to email
     let row = findUserByGoogleId(payload.sub);
@@ -625,16 +678,31 @@ app.post("/api/generations/:id/connect-domain", requireUser, requireVerifiedUser
     const user = response.locals.user as UserAccount;
     const generationId = String(request.params.id);
     const { domain } = existingDomainSchema.parse(request.body);
+    if (!isCloudflareConfigured()) {
+      response.status(501).json({ message: "Custom domains need Cloudflare configured on the server." });
+      return;
+    }
     const generation = getGeneration(user.id, generationId);
-    if (!generation) {
+    const previous = getGenerationSummary(user.id, generationId);
+    if (!generation || !previous) {
       response.status(404).json({ message: "Generation not found. Publish it first." });
       return;
     }
+    // Claim the domain first (enforces uniqueness), then roll back if the Cloudflare deploy fails.
     const updatedSummary = updateGenerationDeployment(user.id, generationId, {
       customDomain: domain,
       hostingProvider: "cloudflare-pages"
     });
-    const { pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain);
+    let pagesUrl: string;
+    try {
+      ({ pagesUrl } = await deployToCloudflarePages(generationId, generation.site.previewHtml, domain));
+    } catch (deployError) {
+      updateGenerationDeployment(user.id, generationId, {
+        customDomain: previous.customDomain,
+        hostingProvider: previous.hostingProvider
+      });
+      throw deployError;
+    }
     const projectName = pagesProjectName(generationId);
     response.json({
       connected: true,
@@ -684,9 +752,10 @@ app.post("/api/domains/checkout", requireUser, requireVerifiedUser, async (reque
     }
 
     const amount = domain.priceCents + Math.max(0, input.years - 1) * domain.renewalPriceCents;
-    const successUrl =
-      process.env.DOMAIN_SUCCESS_URL ??
-      `${clientOrigin}?domain_checkout=success&session_id={CHECKOUT_SESSION_ID}&domain=${encodeURIComponent(domain.domain)}`;
+    // Stripe only fills in {CHECKOUT_SESSION_ID}; {DOMAIN} is ours to substitute.
+    const successUrl = (
+      process.env.DOMAIN_SUCCESS_URL ?? `${clientOrigin}?domain_checkout=success&session_id={CHECKOUT_SESSION_ID}&domain={DOMAIN}`
+    ).replace("{DOMAIN}", encodeURIComponent(domain.domain));
     const cancelUrl = process.env.DOMAIN_CANCEL_URL ?? `${clientOrigin}?domain_checkout=cancel`;
 
     const session = await stripe.checkout.sessions.create({
@@ -745,6 +814,10 @@ app.post("/api/domains/checkout/sync", requireUser, requireVerifiedUser, async (
     const session = await stripe.checkout.sessions.retrieve(sessionId);
     if (session.metadata?.userId !== user.id) {
       response.status(403).json({ message: "This checkout session belongs to a different user." });
+      return;
+    }
+    if (session.metadata?.type !== "domain-registration") {
+      response.status(400).json({ message: "This checkout session is not a domain purchase." });
       return;
     }
     if (session.payment_status !== "paid") {
@@ -1063,11 +1136,13 @@ app.post("/api/generate-from-file", requireUser, requireVerifiedUser, upload.sin
 // Save + optionally deploy to Cloudflare Pages (skipped when self-hosting)
 app.post("/api/generations", requireUser, requireVerifiedUser, async (request, response, next) => {
   try {
-    const { intake, site } = request.body as { intake: BusinessIntake; site: GeneratedSite };
-    if (!intake || !site || !site.id || !site.templateId) {
+    const parsed = saveGenerationSchema.safeParse(request.body);
+    if (!parsed.success) {
       response.status(400).json({ message: "Invalid save request." });
       return;
     }
+    const intake = parsed.data.intake as unknown as BusinessIntake;
+    const site = parsed.data.site as unknown as GeneratedSite;
     const userId = (response.locals.user as UserAccount).id;
     saveGeneration(userId, intake, site);
 
@@ -1152,24 +1227,25 @@ app.use((request, response, next) => {
   }
 
   const host = request.hostname.toLowerCase();
+  const isAppHost = appHosts.has(host);
 
   // Subdomain-based hosting: {slug}.{SITE_DOMAIN}
   const escapedSiteDomain = siteDomain.replace(/\./g, "\\.");
-  const subdomainMatch = host.match(new RegExp(`^([a-z0-9][a-z0-9-]*)\\.${escapedSiteDomain}$`));
+  const subdomainMatch = isAppHost ? null : host.match(new RegExp(`^([a-z0-9][a-z0-9-]*)\\.${escapedSiteDomain}$`));
   if (subdomainMatch) {
     const slug = subdomainMatch[1];
     const slugSite = getPublicGenerationBySlug(slug);
     if (slugSite) {
-      response.type("html").send(publicHtml(slugSite.site));
+      sendPublicSite(response, slugSite.site);
       return;
     }
   }
 
-  // Custom domain matching for production (non-localhost, non-SITE_DOMAIN hosts)
-  if (host && !["localhost", "127.0.0.1", "::1"].includes(host) && !subdomainMatch) {
+  // Custom domain matching for production (hosts other than the app itself and SITE_DOMAIN subdomains)
+  if (host && !isAppHost && !subdomainMatch) {
     const customDomainSite = getPublicGenerationByCustomDomain(host);
     if (customDomainSite) {
-      response.type("html").send(publicHtml(customDomainSite.site));
+      sendPublicSite(response, customDomainSite.site);
       return;
     }
   }
@@ -1178,7 +1254,7 @@ app.use((request, response, next) => {
     const slug = request.path.replace(/^\/|\/$/g, "");
     const slugSite = getPublicGenerationBySlug(slug);
     if (slugSite) {
-      response.type("html").send(publicHtml(slugSite.site));
+      sendPublicSite(response, slugSite.site);
       return;
     }
   }
@@ -1207,6 +1283,14 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   if (error instanceof z.ZodError) {
     const message = error.issues[0]?.message ?? "Invalid request data.";
     res.status(400).json({ message, issues: error.issues });
+    return;
+  }
+  if (error instanceof Error && error.message.startsWith("DOMAIN_ALREADY_CONNECTED:")) {
+    res.status(409).json({ message: `${error.message.slice("DOMAIN_ALREADY_CONNECTED:".length)} is already connected to another website.` });
+    return;
+  }
+  if (error instanceof GenerationOwnershipError) {
+    res.status(404).json({ message: "Generation not found." });
     return;
   }
   if (error instanceof CloudflareRegistrarError) {

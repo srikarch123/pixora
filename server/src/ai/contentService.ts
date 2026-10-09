@@ -26,6 +26,37 @@ const fallbackContent = (intake: BusinessIntake): GeneratedContent => ({
   seoDescription: `${intake.businessName} offers ${intake.offerings.slice(0, 3).join(", ")} in ${intake.city}, ${intake.country}.`
 });
 
+const asText = (value: unknown, fallback: string) =>
+  typeof value === "string" && value.trim() ? value : fallback;
+
+// The model's JSON is untrusted: coerce it to the expected shape so a missing or mistyped field
+// falls back to template copy instead of crashing the renderer.
+const normalizeContent = (raw: Record<string, unknown>, intake: BusinessIntake): GeneratedContent => {
+  const fallback = fallbackContent(intake);
+  const offerings = (Array.isArray(raw.offerings) ? raw.offerings : [])
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => ({
+      name: asText(item.name, ""),
+      description: asText(item.description, ""),
+      priceHint: typeof item.priceHint === "string" ? item.priceHint : undefined
+    }))
+    .filter((item) => item.name);
+  const testimonials = (Array.isArray(raw.testimonials) ? raw.testimonials : [])
+    .filter((item): item is Record<string, unknown> => typeof item === "object" && item !== null)
+    .map((item) => ({ quote: asText(item.quote, ""), author: asText(item.author, "") }))
+    .filter((item) => item.quote);
+  return {
+    headline: asText(raw.headline, fallback.headline),
+    subheadline: asText(raw.subheadline, fallback.subheadline),
+    about: asText(raw.about, fallback.about),
+    offerings: offerings.length ? offerings : fallback.offerings,
+    testimonials: testimonials.length ? testimonials : fallback.testimonials,
+    callToAction: asText(raw.callToAction, fallback.callToAction),
+    seoTitle: asText(raw.seoTitle, fallback.seoTitle),
+    seoDescription: asText(raw.seoDescription, fallback.seoDescription)
+  };
+};
+
 const getErrorStatus = (error: unknown) =>
   typeof error === "object" && error !== null && "status" in error ? Number(error.status) : undefined;
 
@@ -99,7 +130,7 @@ Rules:
     }
 
     return {
-      content: JSON.parse(text) as GeneratedContent,
+      content: normalizeContent(JSON.parse(text) as Record<string, unknown>, intake),
       source: { provider: "openai", model, fallback: false, message: "AI-generated content." }
     };
   } catch (error) {

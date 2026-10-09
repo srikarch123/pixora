@@ -6,7 +6,7 @@ type MCtx = { intake: BusinessIntake; content: GeneratedContent; [k: string]: an
 export type MaisonRenderer = (ctx: MCtx) => string;
 
 const esc = (v = "") =>
-  v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 
 const splitHeadline = (h: string): [string, string] => {
   const w = h.split(" ");

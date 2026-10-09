@@ -294,7 +294,8 @@ const escapeHtml = (value = "") =>
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 const assetFallbacks: Record<BusinessType, string[]> = {
   restaurant: [
@@ -427,8 +428,9 @@ const namedColorMap: Record<string, string> = {
   white: "#ffffff"
 };
 
+// Function arguments are limited to numbers/units so a color can't break out of the <style> block.
 const cssColorPattern =
-  /^(#[0-9a-f]{3,8}|rgb\([^)]+\)|rgba\([^)]+\)|hsl\([^)]+\)|hsla\([^)]+\)|[a-z]+)$/i;
+  /^(#[0-9a-f]{3,8}|(?:rgba?|hsla?)\([0-9a-z.,%/\s-]+\)|[a-z]+)$/i;
 
 const sanitizeCssColor = (color: string | undefined, fallback: string) => {
   const normalized = color?.trim().toLowerCase();

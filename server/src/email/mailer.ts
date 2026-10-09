@@ -8,6 +8,9 @@ const makeTransport = () =>
     auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
   });
 
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 export const sendVerificationEmail = async (to: string, name: string, token: string): Promise<void> => {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.warn("SMTP not configured — skipping verification email.");
@@ -31,7 +34,7 @@ export const sendVerificationEmail = async (to: string, name: string, token: str
       </svg>
     </td></tr>
     <tr><td>
-      <h1 style="color:#dff0e8;font-size:22px;font-weight:700;margin:0 0 8px;">Hi ${name}, confirm your email</h1>
+      <h1 style="color:#dff0e8;font-size:22px;font-weight:700;margin:0 0 8px;">Hi ${escapeHtml(name)}, confirm your email</h1>
       <p style="color:#6b8a78;font-size:15px;line-height:1.6;margin:0 0 28px;">
         Click the button below to verify your email address and activate your Pixora account.
       </p>

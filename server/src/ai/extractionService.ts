@@ -1,7 +1,5 @@
-import { createRequire } from "node:module";
 import OpenAI from "openai";
-const require = createRequire(import.meta.url);
-const pdfParse = require("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
+import { PDFParse } from "pdf-parse";
 import type { BusinessIntake, BusinessType, WebsiteSection } from "../types.js";
 
 const VALID_BUSINESS_TYPES: BusinessType[] = ["restaurant", "retail", "services", "beauty", "portfolio"];
@@ -101,8 +99,14 @@ export const extractIntakeFromFile = async (buffer: Buffer, mimeType: string): P
   let messages: OpenAI.Chat.ChatCompletionMessageParam[];
 
   if (mimeType === "application/pdf") {
-    const pdfData = await pdfParse(buffer);
-    const text = pdfData.text.trim().slice(0, 4000);
+    const parser = new PDFParse({ data: buffer });
+    let pdfText: string;
+    try {
+      pdfText = (await parser.getText()).text;
+    } finally {
+      await parser.destroy();
+    }
+    const text = pdfText.trim().slice(0, 4000);
     if (text.length < 20) {
       throw new Error("Could not read text from this PDF. Please upload a clear image (JPG or PNG) of the document instead.");
     }
